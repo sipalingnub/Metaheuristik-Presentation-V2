@@ -14,8 +14,6 @@ Sapa audiens. Mulai dari pertanyaan sehari-hari: kalau ada banyak pekerjaan dan 
 
     Hari ini kita bandingkan dua jawaban dari alam: kunang-kunang (Firefly Algorithm) dan kelelawar (Bat Algorithm). Keduanya diuji pada beban kerja dan fungsi tujuan yang sama.
 
-    Klik baris nama di bawah judul untuk mengisi nama kelompok. Isinya tersimpan otomatis di browser ini.
-
 ## 2. Masalah penjadwalan
 
 ### Naskah yang diucapkan

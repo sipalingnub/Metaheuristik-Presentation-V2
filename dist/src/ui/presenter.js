@@ -7,6 +7,8 @@
  */
 
 import { ScriptPaper } from './script.js';
+import { AoEHud } from './aoeHud.js';
+import { sound } from '../core/sound.js';
 
 const STAGE_W = 1920;
 const STAGE_H = 1080;
@@ -37,13 +39,16 @@ export class Presenter {
       scale: () => this.scale,
       goBeat: (d) => (d > 0 ? this.next() : this.prev())
     });
+    this.aoeHud = new AoEHud(this);
   }
 
   start() {
+    this.aoeHud.mount(this.frame);
     this.#buildSpine();
     this.#buildOverview();
     this.#bind();
     this.#fit();
+    this.#initInteractiveMouse();
     const wanted = location.hash.replace(/^#/, '').trim().toLowerCase();
     const found = this.slides.findIndex((s) => s.id === wanted);
     this.goTo(found >= 0 ? found : 0, { origin: { x: STAGE_W / 2, y: STAGE_H / 2 } });
@@ -168,6 +173,10 @@ export class Presenter {
       this.#toggle(this.overview, false);
       this.toggleNotes(false);
       this.paper.setOpen(false);
+      this.aoeHud?.techTree?.close();
+      this.aoeHud?.sandbox?.close();
+      this.aoeHud?.codex?.close();
+      this.aoeHud?.landscape3d?.close();
       if (this.#typing(e.target)) e.target.blur();
       return;
     }
@@ -188,6 +197,14 @@ export class Presenter {
     else if (key === 'f') run(() => this.toggleFullscreen());
     else if (key === 't') run(() => this.paper.toggle());
     else if (key === 'n') run(() => this.toggleNotes());
+    else if (key === 'b') run(() => this.aoeHud?.codex?.toggle(this.slides[this.index]?.chapter?.id));
+    else if (key === 'a') run(() => this.aoeHud?.sandbox?.toggle());
+    else if (key === '3' || key === 'l') run(() => this.aoeHud?.landscape3d?.toggle());
+    else if (key === 'm') run(() => {
+      const muted = sound.toggleMute();
+      const icon = document.getElementById('aoe-sound-icon');
+      if (icon) icon.textContent = muted ? '🔇' : '🔊';
+    });
     else if (key === 'g' || key === 'o') run(() => this.#toggle(this.overview));
     else if (key === '?' || key === 'h') run(() => this.#toggle(this.help));
     else if (key === 'p' && this.hooks?.togglePlay) run(() => this.hooks.togglePlay());
@@ -198,11 +215,13 @@ export class Presenter {
   /* ---------- perpindahan ---------- */
 
   next(event) {
+    sound.playClick();
     if (this.beat < this.beatsOf(this.slides[this.index]) - 1) this.setBeat(this.beat + 1);
     else if (this.index < this.slides.length - 1) this.goTo(this.index + 1, { event });
   }
 
   prev(event) {
+    sound.playClick();
     if (this.beat > 0) this.setBeat(this.beat - 1);
     else if (this.index > 0) this.goTo(this.index - 1, { atEnd: true, event });
   }
@@ -277,7 +296,10 @@ export class Presenter {
     if (typeof result === 'function') this.cleanup = result;
     if (atEnd && this.beatsOf(slide) > 1) this.setBeat(this.beatsOf(slide) - 1);
 
-    if (previousChapter && previousChapter !== slide.chapter.id) this.#showChapterCard(slide);
+    if (previousChapter && previousChapter !== slide.chapter.id) {
+      this.#showChapterCard(slide);
+      sound.playHorn();
+    }
 
     $('notes-title').textContent = slide.title;
     $('notes-content').innerHTML = slide.notes || '';
@@ -313,6 +335,125 @@ export class Presenter {
     const chapter = this.slides[this.index].chapter.id;
     this.spineChapters.forEach((c) => c.classList.toggle('current', c.dataset.chapter === chapter));
     this.paper?.update();
+    this.aoeHud?.update();
     this.counterEl.textContent = `${String(this.index + 1).padStart(2, '0')} / ${this.slides.length}`;
+  }
+
+  #initInteractiveMouse() {
+    if (!this.frame) return;
+
+    // Canvas untuk partikel dan jejak kursor interaktif di setiap slide
+    const canvas = document.createElement('canvas');
+    canvas.className = 'aoe-mouse-canvas';
+    canvas.width = STAGE_W;
+    canvas.height = STAGE_H;
+    this.frame.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const particles = [];
+    const colors = ['#facc15', '#38bdf8', '#c084fc', '#f59e0b', '#fbbf24'];
+    let mouse = { x: -100, y: -100, active: false };
+
+    const toStageCoords = (e) => {
+      const rect = this.frame.getBoundingClientRect();
+      const scale = this.scale || 1;
+      return {
+        x: (e.clientX - rect.left) / scale,
+        y: (e.clientY - rect.top) / scale
+      };
+    };
+
+    window.addEventListener('pointermove', (e) => {
+      const pos = toStageCoords(e);
+      mouse.x = pos.x;
+      mouse.y = pos.y;
+      mouse.active = pos.x >= 0 && pos.x <= STAGE_W && pos.y >= 0 && pos.y <= STAGE_H;
+
+      if (!mouse.active) return;
+
+      // Partikel jejak kursor lembut (kunang-kunang / sonar sparks)
+      if (Math.random() < 0.65) {
+        particles.push({
+          x: mouse.x + (Math.random() - 0.5) * 12,
+          y: mouse.y + (Math.random() - 0.5) * 12,
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: (Math.random() - 0.5) * 1.2 - 0.4,
+          size: Math.random() * 2.8 + 1.2,
+          alpha: 0.85,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          life: 1.0,
+          decay: Math.random() * 0.03 + 0.02
+        });
+      }
+    });
+
+    // Pemicu RTS Waypoint Ping pada saat klik di panggung
+    this.frame.addEventListener('pointerdown', (e) => {
+      // Abaikan bila klik berada pada modal yang terbuka
+      if (e.target.closest('.aoe-modal-backdrop') || e.target.closest('.sky-3d-backdrop')) return;
+
+      const pos = toStageCoords(e);
+      if (pos.x < 0 || pos.x > STAGE_W || pos.y < 0 || pos.y > STAGE_H) return;
+
+      // Elemen visual RTS waypoint ping
+      const ping = document.createElement('div');
+      ping.className = 'aoe-rts-cursor-ping';
+      ping.style.left = `${pos.x}px`;
+      ping.style.top = `${pos.y}px`;
+      this.frame.appendChild(ping);
+      setTimeout(() => ping.remove(), 700);
+
+      sound.playClick();
+
+      // Partikel letupan klik (tactical spark burst)
+      for (let i = 0; i < 14; i++) {
+        const angle = (Math.PI * 2 * i) / 14 + (Math.random() - 0.5) * 0.4;
+        const spd = Math.random() * 3.5 + 1.5;
+        particles.push({
+          x: pos.x,
+          y: pos.y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          size: Math.random() * 3.5 + 1.8,
+          alpha: 1.0,
+          color: i % 2 === 0 ? '#facc15' : '#38bdf8',
+          life: 1.0,
+          decay: Math.random() * 0.04 + 0.03
+        });
+      }
+    });
+
+    // Loop render partikel 60fps
+    const renderParticles = () => {
+      ctx.clearRect(0, 0, STAGE_W, STAGE_H);
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      requestAnimationFrame(renderParticles);
+    };
+
+    renderParticles();
   }
 }

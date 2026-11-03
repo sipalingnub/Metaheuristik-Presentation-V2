@@ -1,0 +1,1719 @@
+/* ==========================================================================
+   AGE OF EMPIRES RTS THEME: HARMONIZED HUD, TECH TREE, RTS GAME & LATEX MATH
+   ========================================================================== */
+
+:root {
+  --aoe-gold: #f5c542;
+  --aoe-gold-dark: #b8860b;
+  --aoe-gold-light: #fef3c7;
+  --aoe-stone-dark: #0f1422;
+  --aoe-stone-mid: #182032;
+  --aoe-stone-light: #283654;
+  --aoe-border-gold: linear-gradient(180deg, #d4af37 0%, #8a6d1d 50%, #4a3809 100%);
+}
+
+.aoe-hud-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 32;
+}
+
+.aoe-hud-layer * {
+  pointer-events: auto;
+}
+
+/* --------------------------------------------------------------------------
+   1. SLEEK FLOATING HEADER (NON-INTRUSIVE & TIDAK MENUTUPI JUDUL SLIDE)
+   -------------------------------------------------------------------------- */
+.aoe-floating-header {
+  position: absolute;
+  top: 14px;
+  left: 100px;
+  right: 100px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(15, 22, 38, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid #8a6d1d;
+  border-radius: 999px;
+  padding: 0 16px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  z-index: 40;
+}
+
+/* Dropdown Era */
+.aoe-era-selector-wrap {
+  position: relative;
+}
+
+.aoe-era-crest-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  background: linear-gradient(180deg, #3d2712 0%, #221408 100%);
+  border: 1.5px solid #d4af37;
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transition: all 120ms ease;
+}
+
+.aoe-era-crest-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+}
+
+.aoe-era-crest-btn .era-icon { font-size: 16px; }
+.aoe-era-crest-btn .era-arrow { font-size: 9px; color: var(--aoe-gold); margin-left: 4px; }
+
+.aoe-era-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 280px;
+  background: #121828;
+  border: 2px solid #8a6d1d;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 60;
+}
+
+.aoe-era-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #202b40;
+  color: #e2e8f0;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.aoe-era-dropdown-item:hover, .aoe-era-dropdown-item.active {
+  background: #23314d;
+  color: var(--aoe-gold);
+}
+
+.aoe-era-dropdown-item .item-icon { font-size: 18px; }
+.aoe-era-dropdown-item .item-text b { display: block; font-size: 12px; }
+.aoe-era-dropdown-item .item-text small { font-size: 10px; color: #94a3b8; }
+
+/* Counter Sumber Daya */
+.aoe-resources-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.res-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.res-tag b {
+  font-family: var(--font-mono);
+  color: #ffffff;
+}
+
+.res-tag.gold b {
+  color: var(--aoe-gold);
+}
+
+/* Header Actions */
+.aoe-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aoe-hdr-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  background: linear-gradient(180deg, #232f47 0%, #161e2e 100%);
+  border: 1px solid #485b80;
+  border-radius: 999px;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.aoe-hdr-btn:hover {
+  background: #2d3c5b;
+  border-color: var(--aoe-gold);
+  color: var(--aoe-gold);
+}
+
+.aoe-hdr-btn.aoe-gold-btn {
+  background: linear-gradient(180deg, #8a6d1d 0%, #4a3809 100%);
+  border-color: #d4af37;
+  color: #fff;
+}
+
+.aoe-hdr-btn.aoe-gold-btn:hover {
+  background: linear-gradient(180deg, #b8860b 0%, #684f0c 100%);
+}
+
+.aoe-sound-btn {
+  padding: 0 8px;
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   2. CORNER MINIMAP TAKTIS (POJOK KIRI BAWAH - TIDAK MENUTUPI AREA TENGAH)
+   -------------------------------------------------------------------------- */
+.aoe-corner-minimap {
+  position: absolute;
+  left: 20px;
+  bottom: 16px;
+  width: 196px;
+  background: #0f1524;
+  border: 2px solid #8a6d1d;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+  padding: 6px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 35;
+}
+
+.minimap-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.minimap-bar span {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--aoe-gold);
+  letter-spacing: 0.06em;
+}
+
+.aoe-ping-btn {
+  background: linear-gradient(180deg, #3d2712 0%, #201306 100%);
+  border: 1px solid #d4af37;
+  color: var(--aoe-gold);
+  font-size: 8px;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: transform 100ms ease;
+}
+
+.aoe-ping-btn:hover {
+  transform: scale(1.05);
+}
+
+.minimap-frame {
+  width: 180px;
+  height: 96px;
+  border: 1px solid #23314d;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.minimap-frame canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.aoe-mini-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(22, 31, 50, 0.9);
+  border: 1px solid #364668;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.aoe-mini-portrait .avatar-icon { font-size: 18px; }
+
+.aoe-mini-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entity-name {
+  font-size: 10px;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-sub {
+  font-size: 8px;
+  color: var(--aoe-gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Suar Taktis (Tactical Beacon on Screen) */
+.aoe-tactical-beacon {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #18233a 0%, #2e1d3b 100%);
+  border: 2px solid #fbbf24;
+  border-radius: 999px;
+  padding: 8px 24px;
+  color: #fff;
+  font-size: 15px;
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.6);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.aoe-tactical-beacon span { color: var(--aoe-gold); font-weight: 800; }
+.aoe-tactical-beacon b { color: #fff; }
+
+.aoe-tactical-beacon.pulse-in {
+  animation: beaconPulse 400ms cubic-bezier(0.17, 0.89, 0.32, 1.28) both;
+}
+
+.aoe-tactical-beacon.fade-out {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+@keyframes beaconPulse {
+  from { transform: translateX(-50%) scale(0.7); opacity: 0; }
+  to { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+/* --------------------------------------------------------------------------
+   3. CORNER ACTIONS (POJOK KANAN BAWAH)
+   -------------------------------------------------------------------------- */
+.aoe-corner-actions {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 35;
+}
+
+.aoe-corner-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 56px;
+  background: linear-gradient(180deg, #242f47 0%, #141b2c 100%);
+  border: 1px solid #4a5d85;
+  border-radius: 6px;
+  color: #e2e8f0;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  transition: all 120ms ease;
+}
+
+.aoe-corner-btn:hover {
+  background: #334366;
+  border-color: var(--aoe-gold);
+  transform: translateY(-2px);
+}
+
+.aoe-corner-btn.gold {
+  border-color: #d4af37;
+  background: linear-gradient(180deg, #614614 0%, #2d1e08 100%);
+}
+
+.aoe-corner-btn.gold:hover {
+  background: linear-gradient(180deg, #8a6d1d 0%, #442f0b 100%);
+}
+
+.aoe-corner-btn span { font-size: 18px; line-height: 1; margin-bottom: 2px; }
+.aoe-corner-btn small { font-size: 8px; font-weight: 700; white-space: nowrap; }
+
+/* --------------------------------------------------------------------------
+   4. TIPOGRAFI FORMULA MATEMATIKA BERGAYA LATEX
+   -------------------------------------------------------------------------- */
+.latex-math {
+  font-family: 'Cambria Math', 'Latin Modern Math', 'Times New Roman', serif;
+  font-size: 1.15em;
+  color: #f6e05e;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.m-var {
+  font-style: italic;
+  font-family: 'Cambria Math', 'Times New Roman', serif;
+  margin: 0 1px;
+}
+
+.m-frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.m-num {
+  border-bottom: 1.5px solid currentColor;
+  padding-bottom: 2px;
+  font-size: 0.9em;
+}
+
+.m-denom {
+  padding-top: 2px;
+  font-size: 0.9em;
+}
+
+.m-op-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin: 0 4px;
+  line-height: 1;
+}
+
+.m-op {
+  font-size: 1.35em;
+  line-height: 1;
+}
+
+.m-sup {
+  font-size: 0.65em;
+  line-height: 1;
+}
+
+.m-sub {
+  font-size: 0.65em;
+  line-height: 1;
+}
+
+.m-sqrt {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.m-rad {
+  font-size: 1.2em;
+  margin-right: 1px;
+}
+
+.m-radicand {
+  border-top: 1.5px solid currentColor;
+  padding-top: 1px;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.m-txt {
+  font-family: var(--font-body);
+  font-style: normal;
+  font-size: 0.85em;
+  color: #cbd5e1;
+  margin: 0 2px;
+}
+
+.m-sym, .m-greek {
+  font-style: normal;
+}
+
+.math-display-card {
+  background: rgba(8, 13, 23, 0.92);
+  border: 1px solid #304163;
+  border-left: 4px solid var(--aoe-gold);
+  border-radius: 6px;
+  padding: 14px 20px;
+  margin: 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   5. MINI-GAME RTS "AGE OF CLOUD" (ARENA TEMPUR INTERAKTIF)
+   -------------------------------------------------------------------------- */
+.aoe-rts-game-window {
+  width: 1720px;
+  height: 960px;
+  background: #101626;
+  border: 3px solid #8a6d1d;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rts-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rts-gold-pill {
+  background: rgba(245, 197, 66, 0.15);
+  border: 1px solid var(--aoe-gold);
+  color: #ffffff;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+.rts-gold-pill b {
+  color: var(--aoe-gold);
+  font-family: var(--font-mono);
+}
+
+.aoe-castles-grid {
+  flex: 1;
+  padding: 20px 24px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.aoe-castle-card {
+  background: #172033;
+  border: 2px solid #314263;
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  transition: border-color 140ms ease;
+}
+
+.aoe-castle-card:hover {
+  border-color: #5571a8;
+}
+
+.castle-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.castle-avatar { font-size: 32px; }
+
+.castle-meta {
+  flex: 1;
+}
+
+.castle-meta b {
+  display: block;
+  font-size: 16px;
+  color: #fff;
+}
+
+.castle-meta small {
+  display: block;
+  font-size: 13px;
+  color: var(--aoe-gold);
+  font-family: var(--font-mono);
+}
+
+.aoe-upgrade-btn {
+  background: linear-gradient(180deg, #2b3954 0%, #172133 100%);
+  border: 1px solid #4a5d85;
+  border-radius: 6px;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.aoe-upgrade-btn:hover {
+  background: #374a6e;
+  border-color: var(--aoe-gold);
+  color: var(--aoe-gold);
+}
+
+.aoe-upgrade-btn small {
+  color: var(--aoe-gold);
+}
+
+/* HP / Load Bar Benteng */
+.castle-hp-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.castle-hp-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.castle-hp-label b {
+  font-family: var(--font-mono);
+  color: #e2e8f0;
+}
+
+.castle-hp-track {
+  height: 12px;
+  background: #090e1a;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #23304a;
+}
+
+.castle-hp-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 350ms ease, background 200ms ease;
+}
+
+.castle-hp-bar.underload { background: #38bdf8; }
+.castle-hp-bar.balanced { background: #22c55e; }
+.castle-hp-bar.bottleneck { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+
+/* Kafilah Tugas di Dalam Benteng */
+.castle-caravans-area {
+  flex: 1;
+  background: rgba(10, 16, 28, 0.6);
+  border: 1px dashed #2d3c5c;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-content: flex-start;
+  min-height: 70px;
+}
+
+.rts-cart {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  background: #1b253b;
+  border: 2px solid #4a5c80;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.rts-cart:hover {
+  transform: translateY(-2px);
+  border-color: #fff;
+}
+
+.rts-cart.selected-caravan {
+  border-color: var(--aoe-gold) !important;
+  box-shadow: 0 0 14px var(--aoe-gold);
+  background: #2e2410;
+}
+
+.cart-tag { font-size: 11px; font-weight: 800; }
+.cart-mi { font-size: 10px; font-family: var(--font-mono); opacity: 0.85; }
+
+/* Duel Arena Board */
+.aoe-duel-arena-wrap {
+  margin: 0 24px 12px;
+  padding: 14px 24px;
+  background: linear-gradient(90deg, #131c2e 0%, #281836 100%);
+  border: 2px solid #8a6d1d;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.duel-contender {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.duel-faction-title { font-size: 14px; font-weight: 800; }
+.fa-box .duel-faction-title { color: #22d3ee; }
+.ba-box .duel-faction-title { color: #a78bfa; }
+
+.duel-score-pill b {
+  font-size: 26px;
+  font-family: var(--font-mono);
+}
+
+.fa-box .duel-score-pill b { color: #a5f3fc; }
+.ba-box .duel-score-pill b { color: #c4b5fd; }
+
+.duel-center-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.vs-text {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--aoe-gold);
+  font-family: var(--font-display);
+}
+
+.duel-iter-badge {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: var(--font-mono);
+}
+
+.duel-banner-announcement {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--aoe-gold);
+}
+
+/* --------------------------------------------------------------------------
+   6. MODAL TECH TREE & CODEX (FULL PARCHMENT & STONE WINDOWS)
+   -------------------------------------------------------------------------- */
+.aoe-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.9);
+  backdrop-filter: blur(14px);
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  box-sizing: border-box;
+}
+
+.aoe-tech-window {
+  width: 1720px;
+  height: 960px;
+  background: #111726;
+  border: 3px solid #8a6d1d;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.aoe-tech-header {
+  height: 64px;
+  background: linear-gradient(180deg, #242f47 0%, #141b2c 100%);
+  border-bottom: 2px solid #8a6d1d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+}
+
+.aoe-tech-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.aoe-crest { font-size: 30px; }
+
+.aoe-tech-title-wrap h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--aoe-gold);
+  letter-spacing: 0.05em;
+}
+
+.aoe-tech-title-wrap p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.aoe-stone-btn {
+  background: linear-gradient(180deg, #2e3a54 0%, #1a2233 100%);
+  border: 1px solid #4f6087;
+  border-radius: 6px;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.aoe-stone-btn:hover {
+  background: #3b4b6d;
+  border-color: var(--aoe-gold);
+  color: var(--aoe-gold);
+}
+
+.aoe-stone-btn.close-btn {
+  font-size: 20px;
+  padding: 2px 12px;
+}
+
+/* Era Tabs */
+.aoe-era-tabs {
+  display: flex;
+  background: #0d121c;
+  border-bottom: 1px solid #2b3650;
+  padding: 0 20px;
+  gap: 6px;
+}
+
+.aoe-era-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.aoe-era-tab:hover, .aoe-era-tab.active {
+  color: #ffffff;
+  border-bottom-color: var(--aoe-gold);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.aoe-era-tab.active .era-name {
+  color: var(--aoe-gold);
+}
+
+/* Tech Tree Body */
+.aoe-tech-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.aoe-tech-tree-col {
+  width: 460px;
+  border-right: 1px solid #2b3650;
+  background: #0f1524;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.aoe-era-summary {
+  background: rgba(30, 41, 64, 0.5);
+  border: 1px solid #2e3c58;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.aoe-era-summary h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--aoe-gold);
+}
+
+.aoe-era-summary p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #cbd5e1;
+}
+
+.aoe-node-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aoe-tech-node-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #182236;
+  border: 1px solid #364463;
+  border-radius: 8px;
+  color: #f1f5f9;
+  text-align: left;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.aoe-tech-node-btn:hover {
+  background: #23314d;
+  border-color: #5d75a8;
+}
+
+.aoe-tech-node-btn.selected {
+  background: linear-gradient(90deg, #2b3a58 0%, #1e283d 100%);
+  border: 2px solid var(--aoe-gold);
+  box-shadow: 0 0 14px rgba(245, 197, 66, 0.25);
+}
+
+.aoe-tech-node-btn .node-icon { font-size: 24px; }
+.aoe-tech-node-btn .node-title { display: block; font-size: 13px; font-weight: 700; }
+.aoe-tech-node-btn .node-badge { font-size: 10px; color: #38bdf8; font-weight: 600; }
+
+/* Detail Column */
+.aoe-tech-detail-col {
+  flex: 1;
+  padding: 28px 36px;
+  overflow-y: auto;
+  background: #121828;
+}
+
+.aoe-parchment-card {
+  background: #192236;
+  border: 1px solid #3a4b70;
+  border-radius: 10px;
+  padding: 26px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.parchment-header { margin-bottom: 16px; }
+
+.parchment-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.parchment-title {
+  margin: 0;
+  font-size: 24px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.aoe-formula-box {
+  background: #090e1a;
+  border: 1px solid #2b3956;
+  border-left: 4px solid var(--aoe-gold);
+  border-radius: 6px;
+  padding: 14px 20px;
+  margin: 16px 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aoe-main-desc {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #e2e8f0;
+  margin-bottom: 20px;
+}
+
+.aoe-deep-points h4 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: var(--aoe-gold);
+}
+
+.aoe-deep-points ul { margin: 0; padding-left: 20px; }
+.aoe-deep-points li { font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 10px; }
+
+.aoe-tech-footer, .aoe-sandbox-footer {
+  height: 56px;
+  background: #0d121c;
+  border-top: 1px solid #2b3650;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.aoe-tech-footer .hint { font-size: 12px; color: #94a3b8; }
+.aoe-cmd-group { display: flex; gap: 10px; }
+
+.aoe-stone-btn.gold-btn {
+  background: linear-gradient(180deg, #22d3ee 0%, #0891b2 100%);
+  border-color: #67e8f9;
+  color: #04101e;
+}
+
+.aoe-stone-btn.purple-btn {
+  background: linear-gradient(180deg, #a78bfa 0%, #7c3aed 100%);
+  border-color: #c4b5fd;
+  color: #0d061f;
+}
+
+.aoe-stone-btn.clash-btn {
+  background: linear-gradient(180deg, #d4af37 0%, #8a6d1d 100%);
+  border-color: #fde047;
+  color: #171104;
+  font-size: 13px;
+  padding: 8px 20px;
+}
+
+/* Codex Modal */
+.aoe-codex-body {
+  flex: 1;
+  padding: 26px 36px;
+  overflow-y: auto;
+  background: #121828;
+}
+
+.aoe-codex-article { max-width: 1400px; margin: 0 auto; }
+.codex-title-card { margin-bottom: 20px; border-bottom: 1px solid #2b3650; padding-bottom: 12px; }
+
+.codex-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(245, 197, 66, 0.15);
+  border: 1px solid var(--aoe-gold);
+  color: var(--aoe-gold);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.codex-title-card h3 {
+  margin: 0;
+  font-size: 24px;
+  color: #ffffff;
+  font-family: var(--font-display);
+}
+
+.codex-sections { display: flex; flex-direction: column; gap: 20px; }
+
+.codex-section-card {
+  background: #182236;
+  border: 1px solid #31405e;
+  border-radius: 8px;
+  padding: 20px 26px;
+}
+
+.codex-section-card h4 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: var(--aoe-gold);
+  border-bottom: 1px solid #283550;
+  padding-bottom: 6px;
+}
+
+.codex-section-content { font-size: 14px; line-height: 1.65; color: #cbd5e1; }
+.codex-section-content p { margin: 0 0 10px; }
+
+.aoe-codex-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.aoe-codex-table th, .aoe-codex-table td {
+  border: 1px solid #2e3d5a;
+  padding: 8px 14px;
+  text-align: left;
+}
+
+.aoe-codex-table th { background: #0f1524; color: var(--aoe-gold); font-size: 12px; }
+.aoe-codex-table td { background: #161f30; font-size: 13px; }
+
+/* --------------------------------------------------------------------------
+   7. SKY OPTIMIZERS 3D WINDOW (ISOMETRIC VOXEL / STRATA CAKE ISLANDS)
+   -------------------------------------------------------------------------- */
+.sky-3d-window {
+  width: 1780px;
+  height: 960px;
+  background: #f5eee4;
+  border: 3px solid #b8860b;
+  border-radius: 16px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  font-family: var(--font-body);
+}
+
+.sky-header {
+  height: 64px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e2dcd2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  z-index: 10;
+}
+
+.sky-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sky-main-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.sky-sub-title {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.sky-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sky-seg-group {
+  display: flex;
+  background: #e2e8f0;
+  padding: 3px;
+  border-radius: 999px;
+  gap: 3px;
+}
+
+.sky-seg-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.sky-seg-btn:hover {
+  color: #0f172a;
+}
+
+.sky-seg-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.sky-icon-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 140ms ease;
+}
+
+.sky-icon-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.sky-icon-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.sky-icon-btn.close-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  border-radius: 50%;
+  color: #64748b;
+}
+
+.sky-icon-btn.close-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.sky-canvas-container {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#sky-webgl-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+#sky-webgl-canvas:active {
+  cursor: grabbing;
+}
+
+/* Floating Badges above the 3D islands */
+.sky-floating-badge {
+  position: absolute;
+  top: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  border-radius: 18px;
+  padding: 14px 20px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.badge-left {
+  left: 48px;
+}
+
+.badge-right {
+  right: 48px;
+}
+
+.badge-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  border: 1.5px solid #cbd5e1;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.badge-avatar svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.badge-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.badge-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-title-row b {
+  font-size: 15px;
+  color: #0f172a;
+  font-family: var(--font-display);
+}
+
+.badge-tag {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge-tag.fa-tag {
+  background: rgba(6, 182, 212, 0.15);
+  color: #0891b2;
+}
+
+.badge-tag.ba-tag {
+  background: rgba(147, 51, 234, 0.15);
+  color: #7c3aed;
+}
+
+.badge-metrics {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.badge-metrics div {
+  display: flex;
+  flex-direction: column;
+}
+
+.badge-metrics small {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.badge-metrics b {
+  font-size: 14px;
+  font-family: var(--font-mono);
+  color: #0f172a;
+}
+
+/* Bottom Card Timeline Wizard */
+.sky-bottom-card {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1320px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1);
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 20;
+}
+
+.sky-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sky-step-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-chip {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #64748b;
+  transition: all 160ms ease;
+}
+
+.step-chip.active {
+  background: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+}
+
+.sky-round-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  font-family: var(--font-mono);
+}
+
+.sky-narrative-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 4px 0;
+}
+
+.narrative-col {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
+  background: #f8fafc;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.narrative-col p {
+  margin: 0;
+}
+
+.faction-bullet {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.faction-bullet.fa-bullet { color: #06b6d4; }
+.faction-bullet.ba-bullet { color: #9333ea; }
+
+.sky-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.sky-playback-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sky-ctl-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 16px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 140ms ease;
+}
+
+.sky-ctl-btn:hover {
+  border-color: #94a3b8;
+  transform: scale(1.06);
+}
+
+.sky-ctl-btn.play-btn {
+  width: 46px;
+  height: 46px;
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  font-size: 18px;
+}
+
+.sky-ctl-btn.play-btn:hover {
+  background: #1e293b;
+}
+
+.sky-speed-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.sky-speed-slider input[type="range"] {
+  accent-color: #0f172a;
+  cursor: pointer;
+}
+
+.sky-speed-slider b {
+  font-family: var(--font-mono);
+  color: #0f172a;
+  width: 32px;
+}
+
+.sky-sparkline-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+#sky-sparkline-cv {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   8. AGE OF EMPIRES RTS PRESENTATION WIZARD & DOCK THEMING
+   -------------------------------------------------------------------------- */
+/* Dok Simulasi Bawah bertema Age of Empires (Papan Komando Batu & Emas) */
+.dock {
+  background: linear-gradient(180deg, #1b263b 0%, #0d1422 100%) !important;
+  border: 2px solid #b8860b !important;
+  border-radius: 10px !important;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8), 0 12px 36px rgba(0, 0, 0, 0.85) !important;
+  padding: 8px 16px !important;
+}
+
+.dock-btn {
+  background: linear-gradient(180deg, #2b3b5c 0%, #172236 100%) !important;
+  border: 1px solid #48618e !important;
+  border-radius: 6px !important;
+  color: #f1f5f9 !important;
+  font-family: var(--font-display) !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+  padding: 0 20px !important;
+  height: 50px !important;
+}
+
+.dock-btn:hover {
+  background: linear-gradient(180deg, #3b4e78 0%, #202e48 100%) !important;
+  border-color: #d4af37 !important;
+  color: #fef08a !important;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.35) !important;
+}
+
+.dock-main {
+  background: linear-gradient(180deg, #d4af37 0%, #8a6d1d 100%) !important;
+  border: 1.5px solid #fef08a !important;
+  color: #171104 !important;
+  box-shadow: 0 0 16px rgba(245, 197, 66, 0.45) !important;
+}
+
+.dock-main:hover {
+  background: linear-gradient(180deg, #fef08a 0%, #b8860b 100%) !important;
+  color: #000000 !important;
+}
+
+.dock-3d-btn {
+  background: linear-gradient(180deg, #10b981 0%, #047857 100%) !important;
+  border-color: #6ee7b7 !important;
+  color: #ffffff !important;
+}
+
+.dock-3d-btn:hover {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.5) !important;
+}
+
+.seg {
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+  border-radius: 6px !important;
+  padding: 3px !important;
+}
+
+.seg-btn {
+  border-radius: 4px !important;
+  font-family: var(--font-display) !important;
+  font-size: 16px !important;
+  height: 42px !important;
+  padding: 0 16px !important;
+}
+
+.seg-btn.active {
+  background: linear-gradient(180deg, #d4af37 0%, #8a6d1d 100%) !important;
+  color: #171104 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Wizard / Tahap Algoritma (Plakat Objektif Kampanye RTS) */
+.hud-phases {
+  background: linear-gradient(180deg, #162033 0%, #0c121e 100%) !important;
+  border: 2px solid #8a6d1d !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(0, 0, 0, 0.6) !important;
+}
+
+.hud-phases small {
+  color: var(--aoe-gold) !important;
+  font-family: var(--font-display) !important;
+  letter-spacing: 0.08em !important;
+}
+
+.hud-phases li {
+  border: 1px solid #283754 !important;
+  border-radius: 6px !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+}
+
+.hud-phases li.active {
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.25) 0%, rgba(212, 175, 55, 0.05) 100%) !important;
+  border-color: #d4af37 !important;
+  color: #fef08a !important;
+  box-shadow: inset 0 0 10px rgba(212, 175, 55, 0.2) !important;
+}
+
+.hud-phases li span {
+  font-family: var(--font-display) !important;
+  border-color: #8a6d1d !important;
+  color: var(--aoe-gold) !important;
+}
+
+.hud-phases li.active span {
+  background: linear-gradient(180deg, #d4af37 0%, #8a6d1d 100%) !important;
+  border-color: #fef08a !important;
+  color: #1a1204 !important;
+}
+
+/* Hud Best & Ring */
+.hud-best {
+  background: linear-gradient(180deg, #162033 0%, #0c121e 100%) !important;
+  border: 2px solid #8a6d1d !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8) !important;
+}
+
+.hud-chart {
+  background: linear-gradient(180deg, #162033 0%, #0c121e 100%) !important;
+  border: 2px solid #8a6d1d !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. BERSIHKAN SISA UI LAMA: SPINE, EDGE, COUNTER, TOOLBAR
+   -------------------------------------------------------------------------- */
+#spine, .spine {
+  display: none !important;
+}
+
+.edge, .edge-prev, .edge-next {
+  display: none !important;
+}
+
+#counter, .counter {
+  display: none !important;
+}
+
+.toolbar {
+  position: absolute !important;
+  top: 14px !important;
+  right: 22px !important;
+  background: none !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  z-index: 50 !important;
+}
+
+.toolbar #btn-overview,
+.toolbar #btn-script,
+.toolbar #btn-notes,
+.toolbar #btn-help {
+  display: none !important;
+}
+
+#btn-fullscreen {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(180deg, #24334d 0%, #111a28 100%) !important;
+  border: 1.5px solid #d4af37 !important;
+  color: #fde047 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7) !important;
+  cursor: pointer !important;
+  display: grid !important;
+  place-items: center !important;
+  transition: all 160ms ease !important;
+}
+
+#btn-fullscreen:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 16px rgba(253, 224, 71, 0.6) !important;
+  border-color: #fef08a !important;
+}
+
+/* --------------------------------------------------------------------------
+   10. INTERACTIVE MOUSE LAYER FOR PRESENTATION SLIDES (RTS WAYPOINTS & PARTICLES)
+   -------------------------------------------------------------------------- */
+.aoe-mouse-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 28;
+}
+
+.aoe-rts-cursor-ping {
+  position: absolute;
+  pointer-events: none;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  margin-top: -22px;
+  border-radius: 50%;
+  border: 2px solid #facc15;
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.8);
+  animation: rtsPing 650ms cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  z-index: 999;
+}
+
+@keyframes rtsPing {
+  0% { transform: scale(0.2); opacity: 1; border-width: 3px; }
+  60% { transform: scale(1.35); opacity: 0.85; }
+  100% { transform: scale(2.2); opacity: 0; border-width: 1px; }
+}
+
+/* Tactile mouse interactive feedback on presentation entities */
+.chip, .lane, .card, .step-item, .pill, button {
+  cursor: pointer;
+}
+
+.chip:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  filter: brightness(1.12);
+}
+
+.lane:hover {
+  filter: brightness(1.08);
+}
+
+

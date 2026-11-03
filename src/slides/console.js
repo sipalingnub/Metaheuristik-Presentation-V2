@@ -136,6 +136,7 @@ export function mountConsole(root, { reducedMotion, registerHooks }, spec) {
         <i class="dock-sep"></i>
         <div class="seg" id="${id}-objectives">${objectiveButtonsHtml('rastrigin')}</div>
         <i class="dock-sep"></i>
+        <button type="button" class="dock-btn dock-3d-btn" id="${id}-3d-btn" title="Buka Medan 3D Three.js (3)"><span>🏔️ 3D</span></button>
         ${dockButton(`${id}-params-toggle`, ICONS.gear, 'Parameter')}
       </div>
 
@@ -152,6 +153,10 @@ export function mountConsole(root, { reducedMotion, registerHooks }, spec) {
   const phaseItems = [...root.querySelectorAll('.hud-phases li')];
   const objectiveBtns = [...root.querySelectorAll(`#${id}-objectives .seg-btn`)];
   wireDrawer(root, id);
+
+  $(`#${id}-3d-btn`)?.addEventListener('click', () => {
+    window.__aoeHud?.landscape3d?.open(landscape.id);
+  });
 
   let landscape = landscapeById('rastrigin');
   let rate = START_RATE;

@@ -10,6 +10,13 @@
     "test": "node scripts/run-tests.mjs",
     "narasi": "node scripts/export-narasi.mjs"
   },
-  "engines": { "node": ">=18" },
-  "devDependencies": { "esbuild": "^0.28.2" }
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  }
 }
