@@ -39,7 +39,7 @@ const kasusKode = {
       <li>FA atau BA menggeser kandidat berdasarkan nilai itu, berulang-ulang.</li>
       <li>Setelah iterasi habis, jadwal terbaik dikirim: tiap tugas dijalankan di VM pilihannya.</li>
     </ol>
-    <p><b>Interaksi:</b> klik sebuah tugas untuk memindahkannya ke VM berikutnya. Coba kalahkan Round-Robin dengan tangan, lalu tekan tombol Hasil FA atau Hasil BA untuk melihat jadwal yang ditemukan algoritma pada beban kerja yang sama.</p>
+    <p><b>Interaksi:</b> seret kotak tugas ke jalur VM lain untuk memindahkannya. Coba kalahkan Round-Robin dengan tangan, lalu tekan tombol Hasil FA atau Hasil BA untuk melihat jadwal yang ditemukan algoritma pada beban kerja yang sama.</p>
     <p>Penugasan manual adalah contoh bahwa ruang pencarian besar: 4 pangkat 16 kemungkinan. Algoritma mencari dengan beberapa ratus evaluasi saja.</p>`,
   mount(container, { registerHooks }) {
     const tasks = generateTasks(16, TASK_SEED);
@@ -78,7 +78,7 @@ const kasusKode = {
         <div class="lanes" id="lanes" style="height:${TOP + lanesH}px">
           ${vms
             .map(
-              (vm, j) => `<div class="lane" style="top:${TOP + j * (LANE_H + GAP)}px;height:${LANE_H}px">
+              (vm, j) => `<div class="lane" data-vm="${j}" style="top:${TOP + j * (LANE_H + GAP)}px;height:${LANE_H}px">
                 <div class="lane-name" style="width:${LABEL_W - 14}px"><b>${vm.name}</b><span>${vm.mips} MIPS</span><em id="load-${j}"></em></div>
                 <div class="lane-track" style="left:${LABEL_W}px"></div></div>`
             )
@@ -87,11 +87,11 @@ const kasusKode = {
           <div class="mark mark-make" id="mark-make"><i id="mark-make-label">makespan</i></div>
           ${tasks
             .map(
-              (t) => `<button type="button" class="chip" data-id="${t.id}" style="background:${taskColor(t.id)}" aria-label="Tugas ${t.name}, pindahkan ke VM berikutnya"><b>${t.name}</b><span>${t.mi}</span></button>`
+              (t) => `<button type="button" class="chip" data-id="${t.id}" draggable="true" style="background:${taskColor(t.id)}" aria-label="Tugas ${t.name}, seret ke jalur VM tujuan"><b>${t.name}</b><span>${t.mi}</span></button>`
             )
             .join('')}
         </div>
-        <p class="kode-hint">Klik blok tugas untuk memindahkannya ke VM berikutnya. Lebar blok = waktu eksekusi (MI ÷ MIPS).</p>
+        <p class="kode-hint">Seret blok tugas ke jalur VM tujuan. Lebar blok = waktu eksekusi (MI ÷ MIPS).</p>
 
         <div class="dock dock-kode">
           <button type="button" class="dock-btn" data-act="rr"><span>Round-Robin</span></button>
@@ -158,14 +158,45 @@ const kasusKode = {
       update();
     }
 
-    chips.forEach((chip) => {
-      chip.addEventListener('click', () => {
-        const i = Number(chip.dataset.id) - 1;
-        assignment[i] = (assignment[i] + 1) % vms.length;
-        moves++;
-        solved = null;
-        update();
+    let draggedTaskId = null;
+    const laneAt = (clientY) =>
+      [...lanesEl.querySelectorAll('.lane')].find((lane) => {
+        const rect = lane.getBoundingClientRect();
+        return clientY >= rect.top && clientY <= rect.bottom;
       });
+    chips.forEach((chip) => {
+      chip.addEventListener('dragstart', (event) => {
+        draggedTaskId = Number(chip.dataset.id);
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', String(draggedTaskId));
+        chip.classList.add('is-dragging');
+      });
+      chip.addEventListener('dragend', () => {
+        draggedTaskId = null;
+        chip.classList.remove('is-dragging');
+        lanesEl.querySelectorAll('.drop-target').forEach((lane) => lane.classList.remove('drop-target'));
+      });
+    });
+
+    lanesEl.addEventListener('dragover', (event) => {
+      if (draggedTaskId === null) return;
+      const lane = laneAt(event.clientY);
+      if (!lane) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      lanesEl.querySelectorAll('.drop-target').forEach((target) => target.classList.toggle('drop-target', target === lane));
+    });
+    lanesEl.addEventListener('drop', (event) => {
+      const lane = laneAt(event.clientY);
+      if (!lane || draggedTaskId === null) return;
+      event.preventDefault();
+      const taskIndex = draggedTaskId - 1;
+      const targetVm = Number(lane.dataset.vm);
+      if (!Number.isInteger(taskIndex) || !Number.isInteger(targetVm) || assignment[taskIndex] === targetVm) return;
+      assignment[taskIndex] = targetVm;
+      moves++;
+      solved = null;
+      update();
     });
 
     const optimizerBest = {};

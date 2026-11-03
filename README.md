@@ -62,6 +62,12 @@ Semua jalur memakai alamat relatif, jadi berjalan di subfolder GitHub Pages. Fol
 | 9. Hasil eksperimen | `adu`, `eksperimen` | Adu 2D dengan posisi awal sama, 10 beban kerja dengan grafik batang |
 | 10. Kesimpulan | `ringkas`, `penutup`, `pustaka` | Angka kesimpulan dihitung dari data, bukan ditulis tangan |
 
+### Arena RTS dan medan 3D
+
+Game Arena memakai Canvas 2D bergaya RTS dengan fog of war: hanya Town Center dan radius pandang unit yang menyingkap peta, sedangkan pulsa sonar Bat membuka area sementara. Villager memilih node emas/kayu yang terlihat berdasarkan intensitas dan tarikan Firefly yang melemah terhadap jarak. Villager membawa maksimal 10 resource lalu kembali ke Town Center untuk menyetor. Knight memakai frekuensi, loudness, pulse rate, velocity, serta sonar untuk berpatroli dan berkelompok menyerbu minion yang terdeteksi. Rekrutmen villager berbiaya 50 emas, sedangkan knight berbiaya 100 emas dan 50 kayu. Peta dapat dijelajahi dengan drag dan zoom, serta simulasi bisa dijeda atau diulang.
+
+Pada Medan 3D, Firefly dan Bat terbang mengikuti langkah simulasi. Agen terbaik masing-masing ditandai mahkota. Dinding ruang dan batu gua menjadi tembus pandang saat kamera mendekat agar unit dan kristal tetap terlihat.
+
 ### Kertas naskah untuk presenter
 
 Tombol berikon kertas di kanan atas (atau tombol `T`) membuka lembar kertas krem berisi **naskah yang tinggal dibaca** untuk slide aktif. Paragraf untuk beat yang sedang tampil menyala dan lembar ikut menggulir saat beat atau slide berganti.
@@ -84,7 +90,7 @@ index.html               cangkang panggung + pemuat dua mode (file:// dan http)
 public/app.bundle.js     bundel untuk file:// (dibuat oleh npm run build)
 public/fonts/            Sora, Manrope, Red Hat Mono (lisensi SIL OFL)
 src/main.js              titik masuk
-src/ui/presenter.js      Presenter: spine, iris, kartu bab, beat, catatan, kisi, pintasan
+src/ui/presenter.js      Presenter: spine, fade slide, popup Act, beat, catatan, kisi, pintasan
 src/ui/script.js         ScriptPaper: kertas naskah (geser, ubah ukuran, jendela terpisah)
 src/core/                random.js (PRNG ber-seed), landscapes.js (fungsi 2D), ticker.js (StepTicker)
 src/algorithms/          LOGIKA MURNI tanpa DOM: firefly.js, bat.js, cloudScheduling.js

@@ -10,7 +10,7 @@ import { formatMath, formatMathInHtml } from './mathRenderer.js';
 export const TECH_TREE_DATA = {
   dark: {
     id: 'dark',
-    name: 'Era I · Zaman Gelap (Krisis Cloud & NP-Hard)',
+    name: 'Act 1 · Krisis Cloud & NP-Hard',
     icon: '🏰',
     summary: 'Fondasi matematika penjadwalan komputasi awan, ledakan ruang pencarian kombinatorial, dan kegagalan pendekatan heuristik konvensional.',
     nodes: [
@@ -58,7 +58,7 @@ export const TECH_TREE_DATA = {
   },
   feudal: {
     id: 'feudal',
-    name: 'Era II · Zaman Feodal (Ordo Kunang-Kunang / FA)',
+    name: 'Act 2 · Ordo Kunang-Kunang / Firefly',
     icon: '💡',
     summary: 'Sains di balik Firefly Algorithm: hukum penyerapan cahaya Beer-Lambert, pergerakan berbasis daya tarik berjarak, dan kemampuan klasterisasi multimodal.',
     nodes: [
@@ -106,7 +106,7 @@ export const TECH_TREE_DATA = {
   },
   castle: {
     id: 'castle',
-    name: 'Era III · Zaman Kastil (Legiun Kelelawar / BA)',
+    name: 'Act 3 · Legiun Kelelawar / Bat',
     icon: '🦇',
     summary: 'Mekanisme Bat Algorithm: ekolokasi ultrasonik, transisi dinamis antara kelantangan (A) dan laju pulsa (r), serta penyerbuan presisi di sekitar pemimpin terbaik.',
     nodes: [
@@ -153,7 +153,7 @@ export const TECH_TREE_DATA = {
   },
   imperial: {
     id: 'imperial',
-    name: 'Era IV · Zaman Imperial (Penerapan Komputasi Awan)',
+    name: 'Act 4 · Penerapan Komputasi Awan',
     icon: '⚔️',
     summary: 'Teknik pemetaan ruang kontinu ke diskret, fungsi penalti sebaran beban VM, dan metodologi perbandingan eksperimen 10 beban kerja.',
     nodes: [
@@ -201,7 +201,7 @@ export const TECH_TREE_DATA = {
   },
   wonder: {
     id: 'wonder',
-    name: 'Era V · Keajaiban Dunia (Sintesis & Perbandingan Ilmiah)',
+    name: 'Act 5 · Sintesis & Perbandingan Ilmiah',
     icon: '🏛️',
     summary: 'Bedah komparatif komprehensif antara Firefly Algorithm dan Bat Algorithm: kompleksitas waktu, sensitivitas parameter, dan panduan pemilihan di dunia industri.',
     nodes: [

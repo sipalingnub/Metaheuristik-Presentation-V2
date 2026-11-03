@@ -114,6 +114,45 @@ class SoundEngine {
     osc.stop(now + 0.08);
   }
 
+  /** Satu seruan gagak serak sebagai penanda transisi adegan. */
+  playCrow() {
+    if (this.muted) return;
+    const ctx = this.#ensure();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const duration = 0.62;
+    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duration), ctx.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+
+    const source = ctx.createBufferSource();
+    const croak = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    source.buffer = buffer;
+    croak.type = 'sawtooth';
+    croak.frequency.setValueAtTime(520, now);
+    croak.frequency.exponentialRampToValueAtTime(190, now + duration);
+    filter.type = 'bandpass';
+    filter.Q.setValueAtTime(2.2, now);
+    filter.frequency.setValueAtTime(680, now);
+    filter.frequency.exponentialRampToValueAtTime(230, now + duration);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.035);
+    gain.gain.exponentialRampToValueAtTime(0.025, now + 0.22);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    source.connect(filter);
+    croak.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start(now);
+    croak.start(now);
+    source.stop(now + duration);
+    croak.stop(now + duration);
+  }
+
   /** Denting benturan pedang besi RTS (Mulai Adu / Duel) */
   playSword() {
     if (this.muted) return;

@@ -3,7 +3,7 @@
  * - Panggung 1920x1080 yang diskalakan ke jendela (satu sumber ukuran untuk DOM dan kanvas).
  * - "Spine" vertikal di kiri: satu simpul per bab, tanda kecil per slide, terisi mengikuti beat.
  * - Overview (kisi semua slide), lembar catatan dari bawah, dan lembar pintasan.
- * - Transisi iris: slide baru terbuka sebagai lingkaran dari titik klik, bab baru diawali kartu bab.
+ * - Transisi antar-slide berupa fade singkat dan penanda Act saat bab berganti.
  */
 
 import { ScriptPaper } from './script.js';
@@ -12,9 +12,14 @@ import { sound } from '../core/sound.js';
 
 const STAGE_W = 1920;
 const STAGE_H = 1080;
-const LEAVE_MS = 700;
-
 const $ = (id) => document.getElementById(id);
+const ACTS = [
+  { chapters: ['masalah', 'metaheuristik'], label: 'Krisis Cloud & NP-Hard' },
+  { chapters: ['firefly'], label: 'Ordo Kunang-Kunang (FA)' },
+  { chapters: ['bat'], label: 'Legiun Kelelawar (BA)' },
+  { chapters: ['model', 'cloud'], label: 'Perang Penjadwalan Cloud' },
+  { chapters: ['hasil', 'penutup'], label: 'Sintesis & Analisis Hasil' }
+];
 
 export class Presenter {
   constructor(slides) {
@@ -25,12 +30,13 @@ export class Presenter {
     this.cleanup = null;
     this.hooks = null;
     this.calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    this.actToast = null;
+    this.actToastTimer = null;
 
     this.frame = $('frame');
     this.slidesEl = $('slides');
     this.spineEl = $('spine');
     this.counterEl = $('counter');
-    this.chapterCard = $('chapter-card');
     this.notes = $('presenter-notes');
     this.overview = $('overview');
     this.help = $('shortcuts-modal');
@@ -51,7 +57,7 @@ export class Presenter {
     this.#initInteractiveMouse();
     const wanted = location.hash.replace(/^#/, '').trim().toLowerCase();
     const found = this.slides.findIndex((s) => s.id === wanted);
-    this.goTo(found >= 0 ? found : 0, { origin: { x: STAGE_W / 2, y: STAGE_H / 2 } });
+    this.goTo(found >= 0 ? found : 0);
   }
 
   /* ---------- struktur ---------- */
@@ -96,8 +102,14 @@ export class Presenter {
     this.spineEl.addEventListener('click', (e) => {
       const tick = e.target.closest('.spine-tick');
       const node = e.target.closest('.spine-node');
-      if (tick) this.goTo(Number(tick.dataset.slide), { event: e });
-      else if (node) this.goTo(Number(node.dataset.first), { event: e });
+      if (tick) this.goTo(Number(tick.dataset.slide));
+      else if (node) this.goTo(Number(node.dataset.first));
+    });
+    this.spineEl.addEventListener('pointerover', (e) => {
+      if (e.pointerType === 'touch') return;
+      const tick = e.target.closest('.spine-tick');
+      const index = Number(tick?.dataset.slide);
+      if (tick && Number.isInteger(index) && index !== this.index) this.goTo(index);
     });
     this.ticks = [...this.spineEl.querySelectorAll('.spine-tick')];
     this.spineChapters = [...this.spineEl.querySelectorAll('.spine-chapter')];
@@ -118,7 +130,7 @@ export class Presenter {
       const card = e.target.closest('.ov-card');
       if (card) {
         this.#toggle(this.overview, false);
-        this.goTo(Number(card.dataset.slide), { event: e });
+        this.goTo(Number(card.dataset.slide));
       } else if (e.target === this.overview) {
         this.#toggle(this.overview, false);
       }
@@ -129,8 +141,8 @@ export class Presenter {
   /* ---------- peristiwa ---------- */
 
   #bind() {
-    $('btn-prev').addEventListener('click', (e) => this.prev(e));
-    $('btn-next').addEventListener('click', (e) => this.next(e));
+    $('btn-prev').addEventListener('click', () => this.prev());
+    $('btn-next').addEventListener('click', () => this.next());
     $('btn-script').addEventListener('click', () => this.paper.toggle());
     $('btn-notes').addEventListener('click', () => this.toggleNotes());
     $('btn-close-notes').addEventListener('click', () => this.toggleNotes(false));
@@ -214,16 +226,16 @@ export class Presenter {
 
   /* ---------- perpindahan ---------- */
 
-  next(event) {
+  next() {
     sound.playClick();
     if (this.beat < this.beatsOf(this.slides[this.index]) - 1) this.setBeat(this.beat + 1);
-    else if (this.index < this.slides.length - 1) this.goTo(this.index + 1, { event });
+    else if (this.index < this.slides.length - 1) this.goTo(this.index + 1);
   }
 
-  prev(event) {
+  prev() {
     sound.playClick();
     if (this.beat > 0) this.setBeat(this.beat - 1);
-    else if (this.index > 0) this.goTo(this.index - 1, { atEnd: true, event });
+    else if (this.index > 0) this.goTo(this.index - 1, { atEnd: true });
   }
 
   setBeat(beat) {
@@ -242,20 +254,11 @@ export class Presenter {
     else document.documentElement.requestFullscreen?.().catch(() => {});
   }
 
-  /** Titik asal iris dalam koordinat panggung: titik klik bila ada, kalau tidak sisi sesuai arah. */
-  #originFor(event, forward) {
-    if (event && typeof event.clientX === 'number' && event.detail > 0) {
-      const box = this.frame.getBoundingClientRect();
-      return { x: (event.clientX - box.left) / this.scale, y: (event.clientY - box.top) / this.scale };
-    }
-    return { x: forward ? STAGE_W - 120 : 140, y: STAGE_H / 2 };
-  }
-
   /**
    * @param {number} index
-   * @param {{atEnd?:boolean, event?:Event, origin?:{x:number,y:number}}} [opts]
+   * @param {{atEnd?:boolean, event?:Event}} [opts]
    */
-  goTo(index, { atEnd = false, event, origin } = {}) {
+  goTo(index, { atEnd = false } = {}) {
     if (index < 0 || index >= this.slides.length) return;
     try {
       this.cleanup?.();
@@ -266,26 +269,19 @@ export class Presenter {
     this.hooks = null;
 
     const slide = this.slides[index];
-    const forward = index >= this.index;
-    const previousChapter = this.current ? this.slides[this.index].chapter.id : null;
-    const at = origin ?? this.#originFor(event, forward);
+    const previousChapter = this.current?.dataset.chapter;
     this.index = index;
     this.beat = 0;
     document.body.dataset.chapter = slide.chapter.id;
 
     const leaving = this.current;
-    if (leaving) {
-      leaving.classList.add('leaving');
-      setTimeout(() => leaving.remove(), this.calm ? 0 : LEAVE_MS);
-    }
+    leaving?.remove();
 
     const el = document.createElement('section');
-    el.className = 'slide';
+    el.className = this.calm ? 'slide' : 'slide slide-fade-in';
     el.id = `slide-${slide.id}`;
     el.setAttribute('aria-label', slide.title);
-    el.style.setProperty('--ox', `${at.x}px`);
-    el.style.setProperty('--oy', `${at.y}px`);
-    if (leaving && !this.calm) el.classList.add('iris');
+    el.dataset.chapter = slide.chapter.id;
     this.slidesEl.appendChild(el);
     this.current = el;
 
@@ -296,9 +292,13 @@ export class Presenter {
     if (typeof result === 'function') this.cleanup = result;
     if (atEnd && this.beatsOf(slide) > 1) this.setBeat(this.beatsOf(slide) - 1);
 
-    if (previousChapter && previousChapter !== slide.chapter.id) {
-      this.#showChapterCard(slide);
-      sound.playHorn();
+    if (!leaving || previousChapter !== slide.chapter.id) {
+      const actIndex = ACTS.findIndex((act) => act.chapters.includes(slide.chapter.id));
+      const act = ACTS[actIndex];
+      this.#showActToast(actIndex + 1, act?.label ?? slide.chapter.label);
+    }
+    if (!this.calm) {
+      setTimeout(() => el.classList.remove('slide-fade-in'), 260);
     }
 
     $('notes-title').textContent = slide.title;
@@ -311,13 +311,23 @@ export class Presenter {
     }
   }
 
-  #showChapterCard(slide) {
-    if (this.calm) return;
-    const number = this.chapters.findIndex((c) => c.id === slide.chapter.id) + 1;
-    this.chapterCard.innerHTML = `<b>${String(number).padStart(2, '0')}</b><span>${slide.chapter.label}</span>`;
-    this.chapterCard.classList.remove('show');
-    void this.chapterCard.offsetWidth; // reflow agar animasi bisa diputar ulang
-    this.chapterCard.classList.add('show');
+  #showActToast(number, label) {
+    if (!this.actToast) {
+      this.actToast = document.createElement('div');
+      this.actToast.className = 'act-toast';
+      this.actToast.setAttribute('aria-live', 'polite');
+      this.actToast.setAttribute('aria-atomic', 'true');
+      this.actToast.innerHTML = '<strong></strong><span></span>';
+    }
+
+    this.actToast.querySelector('strong').textContent = `ACT ${number}:`;
+    this.actToast.querySelector('span').textContent = label;
+    this.actToast.classList.remove('visible');
+    this.frame.appendChild(this.actToast);
+    void this.actToast.offsetWidth;
+    this.actToast.classList.add('visible');
+    clearTimeout(this.actToastTimer);
+    this.actToastTimer = setTimeout(() => this.actToast?.classList.remove('visible'), 1450);
   }
 
   #markOverview() {

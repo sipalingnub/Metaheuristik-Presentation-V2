@@ -14,11 +14,11 @@ import { DeepCodexModal } from './deepCodex.js';
 import { Landscape3DModal } from './landscape3dModal.js';
 
 export const ERAS = [
-  { id: 'dark', name: 'Zaman Gelap', sub: 'Krisis Cloud & NP-Hard', icon: '🏰', firstSlide: 'masalah' },
-  { id: 'feudal', name: 'Zaman Feodal', sub: 'Ordo Kunang-Kunang (FA)', icon: '💡', firstSlide: 'fa-inspirasi' },
-  { id: 'castle', name: 'Zaman Kastil', sub: 'Legiun Kelelawar (BA)', icon: '🦇', firstSlide: 'ba-inspirasi' },
-  { id: 'imperial', name: 'Zaman Imperial', sub: 'Perang Penjadwalan Cloud', icon: '⚔️', firstSlide: 'kasus-kode' },
-  { id: 'wonder', name: 'Keajaiban Dunia', sub: 'Sintesis & Analisis Hasil', icon: '🏛️', firstSlide: 'adu' }
+  { id: 'dark', name: 'Act 1', sub: 'Krisis Cloud & NP-Hard', icon: '🏰', firstSlide: 'masalah' },
+  { id: 'feudal', name: 'Act 2', sub: 'Ordo Kunang-Kunang (FA)', icon: '💡', firstSlide: 'fa-inspirasi' },
+  { id: 'castle', name: 'Act 3', sub: 'Legiun Kelelawar (BA)', icon: '🦇', firstSlide: 'ba-inspirasi' },
+  { id: 'imperial', name: 'Act 4', sub: 'Perang Penjadwalan Cloud', icon: '⚔️', firstSlide: 'kasus-kode' },
+  { id: 'wonder', name: 'Act 5', sub: 'Sintesis & Analisis Hasil', icon: '🏛️', firstSlide: 'adu' }
 ];
 
 export class AoEHud {
@@ -28,7 +28,7 @@ export class AoEHud {
   constructor(presenter) {
     this.presenter = presenter;
     this.techTree = new TechTreeModal();
-    this.sandbox = new AoESandboxModal();
+    this.sandbox = new AoESandboxModal(() => this.presenter.goTo(0));
     this.codex = new DeepCodexModal();
     this.landscape3d = new Landscape3DModal();
     this.hudEl = null;
@@ -305,7 +305,7 @@ export class AoEHud {
         eraDropdown?.classList.add('hidden');
         const slideId = item.dataset.firstSlide;
         const targetIdx = this.presenter.slides.findIndex((s) => s.id === slideId);
-        if (targetIdx >= 0) this.presenter.goTo(targetIdx, { event: e });
+        if (targetIdx >= 0) this.presenter.goTo(targetIdx);
       });
     });
 
@@ -377,19 +377,19 @@ export class AoEHud {
       <header class="aoe-floating-header">
         <!-- Dropdown Kemajuan Era -->
         <div class="aoe-era-selector-wrap">
-          <button type="button" id="aoe-era-selector-btn" class="aoe-era-crest-btn" title="Klik untuk berpindah ke Zaman Peradaban lain">
+          <button type="button" id="aoe-era-selector-btn" class="aoe-era-crest-btn" title="Pilih act presentasi">
             <span id="aoe-active-era-icon" class="era-icon">🏰</span>
-            <b id="aoe-active-era-text">ZAMAN GELAP</b>
+            <b id="aoe-active-era-text">ACT 1</b>
             <span class="era-arrow">▼</span>
           </button>
 
           <div id="aoe-era-dropdown" class="aoe-era-dropdown hidden">
             ${ERAS.map(
-              (era, idx) => `
+              (era) => `
               <button type="button" class="aoe-era-dropdown-item" data-era-id="${era.id}" data-first-slide="${era.firstSlide}">
                 <span class="item-icon">${era.icon}</span>
                 <div class="item-text">
-                  <b>Era ${idx + 1}: ${era.name}</b>
+                  <b>${era.name}</b>
                   <small>${era.sub}</small>
                 </div>
               </button>`

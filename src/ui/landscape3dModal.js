@@ -1,8 +1,6 @@
 /**
- * Landscape3DModal: Visualisasi Medan 3D Interaktif (Three.js) Bergaya Age of Empires & Sky Optimizers.
- * Menampilkan dua potongan blok bumi (geological strata cake chunks) dengan topografi halus (non-low-poly),
- * model 3D Firefly (bercahaya dinamis + kepak sayap) dan Bat (sayap mengepak + pulsa sonar echo),
- * serta perspektif Isometrik ala AoE dan Bird's Eye tactical view.
+ * Landscape3DModal: ruang lentera Firefly dan gua kristal Bat dalam scene 3D interaktif.
+ * Unit terbang dengan animasi cahaya dan sonar, sementara fitness dan konvergensi tetap dihitung oleh engine.
  */
 
 import * as THREE from '../vendor/three.module.js';
@@ -10,6 +8,7 @@ import { landscapeById } from '../core/landscapes.js';
 import { FAEngine } from '../algorithms/firefly.js';
 import { BAEngine } from '../algorithms/bat.js';
 import { sound } from '../core/sound.js';
+import { renderConvergenceChart } from '../render/chart.js';
 
 // ============================================================================
 // 1. ILUSTRASI SVG ANIMAL AVATARS (PERSIS HERALDIC CRESTS SCREENSHOT 3)
@@ -73,6 +72,9 @@ export class Landscape3DModal {
     this.wireframe = false;
     this.isPlaying = false;
     this.speed = 1.0;
+    this.faPopulationSize = 20;
+    this.baPopulationSize = 20;
+    this.baFmax = 2;
     this.autoRotate = false;
     this.iteration = 0;
     this.maxIterations = 60;
@@ -87,6 +89,12 @@ export class Landscape3DModal {
     this.clouds = [];
     this.faCreatures = [];
     this.baCreatures = [];
+    this.selectedAgent = null;
+    this.isMovingAgent = false;
+    this.agentDragDirty = false;
+    this.raycaster = new THREE.Raycaster();
+    this.pointerNdc = new THREE.Vector2();
+    this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this.faBestMarker = null;
     this.baBestMarker = null;
     this.sonarRings = [];
@@ -95,9 +103,9 @@ export class Landscape3DModal {
     // Kamera Orbit & Preset Angles
     this.isDragging = false;
     this.prevMouse = { x: 0, y: 0 };
-    this.cameraAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 245 };
+    this.cameraAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 290 };
     this.targetAngle = { ...this.cameraAngle };
-    this.cameraTarget = new THREE.Vector3(0, -4, 0);
+    this.cameraTarget = new THREE.Vector3(0, 8, 0);
 
     // Riwayat Konvergensi
     this.historyFA = [];
@@ -158,8 +166,8 @@ export class Landscape3DModal {
         <!-- HEADER KONTROL ATAS -->
         <header class="sky-header">
           <div class="sky-title-group">
-            <h2 class="sky-main-title" id="sky-title-text">Sky Optimizers 3D</h2>
-            <small class="sky-sub-title" id="sky-sub-text">Dua Cara Menemukan Lembah Terendah: Ordo Kunang-Kunang vs Legiun Kelelawar</small>
+            <h2 class="sky-main-title" id="sky-title-text">Firefly &amp; Bat 3D</h2>
+            <small class="sky-sub-title" id="sky-sub-text">Kunang-kunang mengejar lentera · Kelelawar memburu kristal putih di dalam gua</small>
           </div>
 
           <div class="sky-nav-controls">
@@ -198,6 +206,10 @@ export class Landscape3DModal {
         <!-- AREA KANVAS 3D THREE.JS -->
         <div class="sky-canvas-container" id="sky-canvas-wrap">
           <canvas id="sky-webgl-canvas"></canvas>
+          <div class="sky-agent-tools" id="sky-agent-tools">
+            <span id="sky-agent-hint">Pilih unit, lalu seret untuk memindahkannya</span>
+            <button type="button" id="sky-agent-delete" hidden>🪓 Hancurkan unit</button>
+          </div>
 
           <!-- KARTU STATUS MENGAMBANG DENGAN AVATAR HEWAN ASLI -->
           <div class="sky-floating-badge badge-left" id="badge-fa">
@@ -207,10 +219,12 @@ export class Landscape3DModal {
                 <b id="badge-fa-title">Ordo Kunang-Kunang</b>
                 <span class="badge-tag fa-tag">FA</span>
               </div>
+              <small class="bio-scene-label" id="scene-fa-label">RUANG LENTERA</small>
               <div class="badge-metrics">
                 <div><small id="lbl-fa-best">Terbaik:</small> <b id="fa-val-best">0.000</b></div>
                 <div><small id="lbl-fa-iter">Iterasi:</small> <b id="fa-val-iter">0 / 60</b></div>
                 <div><small id="lbl-fa-beta">Daya Tarik β:</small> <b id="fa-val-beta">1.00</b></div>
+                <div><small id="lbl-fa-count">Pasukan:</small> <b id="fa-val-count">${this.faPopulationSize}</b></div>
               </div>
             </div>
           </div>
@@ -222,10 +236,13 @@ export class Landscape3DModal {
                 <b id="badge-ba-title">Legiun Kelelawar</b>
                 <span class="badge-tag ba-tag">BA</span>
               </div>
+              <small class="bio-scene-label" id="scene-ba-label">GUA KRISTAL PUTIH</small>
               <div class="badge-metrics">
                 <div><small id="lbl-ba-best">Terbaik:</small> <b id="ba-val-best">0.000</b></div>
                 <div><small id="lbl-ba-iter">Iterasi:</small> <b id="ba-val-iter">0 / 60</b></div>
                 <div><small id="lbl-ba-loud">Kelantangan A:</small> <b id="ba-val-loud">0.50</b></div>
+                <div><small id="lbl-ba-count">Pasukan:</small> <b id="ba-val-count">${this.baPopulationSize}</b></div>
+                <div><small id="lbl-ba-fmax">Frekuensi maks.:</small> <b id="ba-val-fmax">${this.baFmax.toFixed(1)}</b></div>
               </div>
             </div>
           </div>
@@ -241,6 +258,33 @@ export class Landscape3DModal {
             </div>
             <span class="sky-round-label" id="sky-round-text">Iterasi 0 dari 60</span>
           </div>
+
+          <details class="sky-convergence-panel" id="sky-convergence-panel">
+            <summary class="sky-convergence-heading">
+              <div>
+                <h3 id="sky-convergence-title">Grafik konvergensi</h3>
+                <small id="sky-convergence-subtitle">Nilai fitness terbaik per iterasi · semakin rendah semakin baik</small>
+              </div>
+              <span class="sky-convergence-objective" id="sky-convergence-objective">Objektif: Rastrigin</span>
+            </summary>
+            <div class="sky-convergence-content">
+              <canvas id="sky-convergence-cv" aria-label="Grafik perbandingan konvergensi Firefly dan Bat"></canvas>
+              <div class="sky-convergence-stats">
+                <div class="sky-convergence-stat fa-stat">
+                  <b>✨ Firefly</b>
+                  <span><small id="lbl-fa-improvement">Perbaikan</small><strong id="fa-val-improvement">0.0000</strong></span>
+                  <span><small id="lbl-fa-position">Koordinat terbaik</small><strong id="fa-val-position">—</strong></span>
+                  <span><small id="lbl-fa-evaluations">Evaluasi</small><strong id="fa-val-evaluations">0</strong></span>
+                </div>
+                <div class="sky-convergence-stat ba-stat">
+                  <b>🦇 Bat</b>
+                  <span><small id="lbl-ba-improvement">Perbaikan</small><strong id="ba-val-improvement">0.0000</strong></span>
+                  <span><small id="lbl-ba-position">Koordinat terbaik</small><strong id="ba-val-position">—</strong></span>
+                  <span><small id="lbl-ba-evaluations">Evaluasi</small><strong id="ba-val-evaluations">0</strong></span>
+                </div>
+              </div>
+            </div>
+          </details>
 
           <div class="sky-narrative-columns">
             <div class="narrative-col fa-col">
@@ -260,15 +304,27 @@ export class Landscape3DModal {
               <button type="button" id="sky-act-step" class="sky-ctl-btn" title="Maju Satu Langkah (S)">⏭️</button>
             </div>
 
-            <div class="sky-speed-slider">
-              <small id="sky-speed-txt">Kecepatan:</small>
-              <input type="range" id="sky-speed-input" min="0.5" max="3" step="0.5" value="1" />
-              <b id="sky-speed-label">1.0x</b>
-            </div>
-
-            <div class="sky-sparkline-wrap">
-              <small id="sky-spark-txt">Konvergensi:</small>
-              <canvas id="sky-sparkline-cv" width="220" height="34"></canvas>
+            <div class="sky-tuning-controls">
+              <label class="sky-range-control">
+                <span id="sky-speed-txt">Kecepatan</span>
+                <input type="range" id="sky-speed-input" min="0.5" max="3" step="0.5" value="1" />
+                <b id="sky-speed-label">1.0x</b>
+              </label>
+              <label class="sky-range-control">
+                <span id="sky-fa-population-txt">Kunang-kunang</span>
+                <input type="range" id="sky-fa-population-input" min="5" max="40" step="1" value="${this.faPopulationSize}" />
+                <b id="sky-fa-population-label">${this.faPopulationSize}</b>
+              </label>
+              <label class="sky-range-control">
+                <span id="sky-ba-population-txt">Kelelawar</span>
+                <input type="range" id="sky-ba-population-input" min="5" max="40" step="1" value="${this.baPopulationSize}" />
+                <b id="sky-ba-population-label">${this.baPopulationSize}</b>
+              </label>
+              <label class="sky-range-control">
+                <span id="sky-fmax-txt">Frekuensi maksimum fₘₐₓ</span>
+                <input type="range" id="sky-fmax-input" min="0.5" max="5" step="0.1" value="${this.baFmax}" />
+                <b id="sky-fmax-label">${this.baFmax.toFixed(1)}</b>
+              </label>
             </div>
           </div>
         </footer>
@@ -285,7 +341,7 @@ export class Landscape3DModal {
     if (!this.canvas) return;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf6f1e8); // Latar hangat pastel lembut khas Screenshot 3
+    this.scene.background = new THREE.Color(0x101923);
 
     // Kamera Low-FOV untuk perspektif isometrik RTS tanpa distorsi
     const aspect = 1780 / 620;
@@ -296,13 +352,13 @@ export class Landscape3DModal {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     // Pencahayaan
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.82);
+    const ambientLight = new THREE.AmbientLight(0xb9c4d2, 0.62);
     this.scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfff7e6, 1.25);
+    const sunLight = new THREE.DirectionalLight(0xffe6b1, 0.82);
     sunLight.position.set(140, 240, 160);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
@@ -315,12 +371,10 @@ export class Landscape3DModal {
     sunLight.shadow.camera.bottom = -200;
     this.scene.add(sunLight);
 
-    const fillLight = new THREE.DirectionalLight(0xbae6fd, 0.45);
+    const fillLight = new THREE.DirectionalLight(0x9ab8e8, 0.24);
     fillLight.position.set(-160, 120, -120);
     this.scene.add(fillLight);
 
-    // Awan Melayang 3D di Latar
-    this.#createClouds();
   }
 
   #createClouds() {
@@ -365,28 +419,22 @@ export class Landscape3DModal {
   }
 
   // ==========================================================================
-  // 5. PEMBUATAN MEDAN HALUS & KUE BATUAN SEDIMEN (NON-LOW-POLY)
+  // 5. RUANG LENTERA FIREFLY DAN GUA KRISTAL BAT
   // ==========================================================================
   #buildTerrainChunks() {
     if (this.faChunkGroup) this.scene.remove(this.faChunkGroup);
     if (this.baChunkGroup) this.scene.remove(this.baChunkGroup);
+    this.cameraOccluders = [];
 
-    const obj = landscapeById(this.currentObjId);
-    const size = 80;
-    const segments = 84; // Resolusi tinggi dan halus, tidak kaku/low-poly
-    const baseDepth = 26;
-
-    // 1. Chunk Padang Rumput Hijau (Firefly - Sisi Kiri)
-    this.faChunkGroup = this.#createRefinedChunkMesh(obj, size, segments, baseDepth, 'grass');
+    this.faChunkGroup = this.#createFireflyRoom();
     this.faChunkGroup.position.set(-68, 0, 0);
     this.scene.add(this.faChunkGroup);
 
-    // 2. Chunk Ngarai Batu Terakota (Bat - Sisi Kanan)
-    this.baChunkGroup = this.#createRefinedChunkMesh(obj, size, segments, baseDepth, 'canyon');
+    this.baChunkGroup = this.#createBatCave();
     this.baChunkGroup.position.set(68, 0, 0);
     this.scene.add(this.baChunkGroup);
 
-    // 3. Marker Pemimpin Terbaik
+    // Penanda solusi terbaik bergerak di lantai menuju lentera atau kristal.
     this.faBestMarker = this.#createLeaderBeacon(0x06b6d4);
     this.faChunkGroup.add(this.faBestMarker);
 
@@ -396,6 +444,179 @@ export class Landscape3DModal {
     // 4. Bangun Hewan 3D Asli & Sistem FX
     this.#initCreatureMeshes();
     this.#initFXSystems();
+  }
+
+  #createFireflyRoom() {
+    const room = new THREE.Group();
+    const makeMaterial = (color, roughness = 0.85, metalness = 0) =>
+      new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    const addBox = (width, height, depth, material, x, y, z) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      room.add(mesh);
+      return mesh;
+    };
+
+    const stone = makeMaterial(0x9b8060);
+    const darkStone = makeMaterial(0x584534);
+    const wood = makeMaterial(0x392817);
+    const gold = makeMaterial(0xd19b39, 0.34, 0.55);
+    const floor = makeMaterial(0x8c704a);
+    addBox(92, 2, 92, floor, 0, -1, 0);
+
+    const wallHeight = 28;
+    this.#markCameraOccluder(addBox(92, wallHeight, 5, stone, 0, wallHeight / 2, -44));
+    this.#markCameraOccluder(addBox(5, wallHeight, 92, stone, -44, wallHeight / 2, 0));
+    this.#markCameraOccluder(addBox(5, wallHeight, 92, stone, 44, wallHeight / 2, 0));
+
+    for (let x = -36; x <= 36; x += 12) {
+      addBox(0.35, 0.16, 86, darkStone, x, 0.08, 0);
+    }
+    for (let z = -36; z <= 36; z += 12) {
+      addBox(86, 0.16, 0.35, darkStone, 0, 0.08, z);
+    }
+    [-39, 39].forEach((x) => {
+      [-39, -15, 15, 39].forEach((z) => {
+        this.#markCameraOccluder(addBox(5, 30, 5, darkStone, x, 14, z));
+        addBox(7, 2, 7, gold, x, 29, z);
+      });
+    });
+
+    // Open ceiling keeps the room readable from the isometric camera.
+    [-32, 0, 32].forEach((z) => addBox(88, 1.5, 3, wood, 0, 28, z));
+    addBox(27, 0.45, 31, makeMaterial(0x6d4325), 0, 0.2, 8);
+
+    // A suspended brass lantern provides the Firefly's prominent light source.
+    const lantern = new THREE.Group();
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 7, 8), wood);
+    chain.position.y = 3.5;
+    lantern.add(chain);
+    const glowMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffe59a,
+      emissive: 0xffb52e,
+      emissiveIntensity: 2.2,
+      roughness: 0.18
+    });
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(3.1, 16, 12), glowMaterial);
+    glow.position.y = -1.5;
+    lantern.add(glow);
+    const cage = new THREE.Mesh(new THREE.OctahedronGeometry(4.5, 0), gold);
+    cage.position.y = -1.5;
+    cage.scale.y = 1.35;
+    lantern.add(cage);
+    const top = new THREE.Mesh(new THREE.ConeGeometry(3.2, 2.2, 8), gold);
+    top.position.y = 2;
+    lantern.add(top);
+    const bottom = new THREE.Mesh(new THREE.ConeGeometry(3.2, 2.2, 8), gold);
+    bottom.rotation.z = Math.PI;
+    bottom.position.y = -5;
+    lantern.add(bottom);
+    const lanternLight = new THREE.PointLight(0xffbd46, 18, 110, 1.5);
+    lanternLight.position.y = -1.5;
+    lantern.add(lanternLight);
+    lantern.position.set(0, 24, 0);
+    room.add(lantern);
+    room.userData.lanternLight = lanternLight;
+
+    return room;
+  }
+
+  #createBatCave() {
+    const cave = new THREE.Group();
+    const stoneMaterials = [0x475262, 0x56606e, 0x67636a, 0x394351].map(
+      (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.96 })
+    );
+    const addRock = (x, y, z, scale, materialIndex = 0) => {
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), stoneMaterials[materialIndex]);
+      rock.position.set(x, y, z);
+      rock.scale.set(scale[0], scale[1], scale[2]);
+      rock.rotation.set(x * 0.03, y * 0.07, z * 0.025);
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      cave.add(rock);
+      this.#markCameraOccluder(rock);
+    };
+
+    const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x464751, roughness: 0.94 });
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(96, 3, 92), floorMaterial);
+    floor.position.y = -1.5;
+    floor.receiveShadow = true;
+    cave.add(floor);
+
+    for (let x = -42; x <= 42; x += 12) {
+      addRock(x, 12 + ((x + 42) % 3) * 2, -43, [9, 17, 8], Math.abs(x) % 4);
+      addRock(x + 4, 27, -29, [10, 8, 13], (Math.abs(x) + 1) % 4);
+    }
+    for (let z = -32; z <= 36; z += 14) {
+      addRock(-45, 13, z, [9, 17, 11], Math.abs(z) % 4);
+      addRock(45, 13, z, [9, 17, 11], (Math.abs(z) + 2) % 4);
+    }
+
+    const stalactiteMaterial = stoneMaterials[2];
+    [-34, -20, 20, 34].forEach((x) => {
+      [-28, -5, 19].forEach((z) => {
+        const height = 8 + ((x + z + 100) % 4) * 2;
+        const stalactite = new THREE.Mesh(new THREE.ConeGeometry(3.2, height, 6), stalactiteMaterial);
+        stalactite.rotation.z = Math.PI;
+        stalactite.position.set(x, 31 - height / 2, z);
+        stalactite.castShadow = true;
+        cave.add(stalactite);
+        this.#markCameraOccluder(stalactite);
+      });
+    });
+
+    // White quartz is the shared target the bats home in on.
+    const crystalBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(7, 9, 2, 7),
+      new THREE.MeshStandardMaterial({ color: 0x343b47, roughness: 0.72 })
+    );
+    crystalBase.position.set(0, 0.5, -8);
+    cave.add(crystalBase);
+    const crystalMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf6ffff,
+      emissive: 0xd8f7ff,
+      emissiveIntensity: 3.4,
+      roughness: 0.16,
+      metalness: 0.18
+    });
+    [
+      { x: 0, y: 8, z: -8, sx: 1.8, sy: 3.4, sz: 1.6 },
+      { x: -4.8, y: 5, z: -6.5, sx: 1, sy: 2.5, sz: 1 },
+      { x: 4.5, y: 5.5, z: -9.5, sx: 0.95, sy: 2.8, sz: 1 }
+    ].forEach((part) => {
+      const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(2.4, 0), crystalMaterial);
+      crystal.position.set(part.x, part.y, part.z);
+      crystal.scale.set(part.sx, part.sy, part.sz);
+      crystal.rotation.z = part.x * 0.09;
+      cave.add(crystal);
+    });
+    const crystalLight = new THREE.PointLight(0xd9f7ff, 52, 140, 1.7);
+    crystalLight.position.set(0, 8, -8);
+    cave.add(crystalLight);
+    cave.userData.crystalLight = crystalLight;
+    return cave;
+  }
+
+  #markCameraOccluder(mesh) {
+    mesh.material = mesh.material.clone();
+    this.cameraOccluders.push({
+      material: mesh.material,
+      opacity: mesh.material.opacity,
+      transparent: mesh.material.transparent,
+      depthWrite: mesh.material.depthWrite
+    });
+  }
+
+  #updateCameraOcclusion() {
+    const fade = THREE.MathUtils.clamp((240 - this.cameraAngle.radius) / 150, 0, 0.84);
+    this.cameraOccluders?.forEach((item) => {
+      const opacity = item.opacity * (1 - fade);
+      item.material.opacity = opacity;
+      item.material.transparent = fade > 0;
+      item.material.depthWrite = fade === 0 ? item.depthWrite : false;
+    });
   }
 
   #createRefinedChunkMesh(obj, size, segments, baseDepth, biome = 'grass') {
@@ -590,171 +811,370 @@ export class Landscape3DModal {
   #initCreatureMeshes() {
     this.faCreatures = [];
     this.baCreatures = [];
+    this.selectedAgent = null;
 
     // A. 20 Kunang-Kunang Berbentuk Serangga Beetle dengan Lantern Bercahaya
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < this.faPopulationSize; i++) {
       const m = this.#buildFireflyCreature(i);
+      m.userData.agentType = 'fa';
+      m.userData.agentIndex = i;
+      this.#addSelectionRing(m, 0x06b6d4);
       this.faChunkGroup.add(m);
       this.faCreatures.push(m);
     }
 
     // B. 20 Kelelawar dengan Sayap Mengepak & Telinga Radar Echolocation
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < this.baPopulationSize; i++) {
       const m = this.#buildBatCreature(i);
+      m.userData.agentType = 'ba';
+      m.userData.agentIndex = i;
+      this.#addSelectionRing(m, 0xa855f7);
       this.baChunkGroup.add(m);
       this.baCreatures.push(m);
     }
+    this.#selectAgent(null);
+  }
+
+  #addSelectionRing(creature, color) {
+    const geometry = new THREE.RingGeometry(1.7, 2.3, 24);
+    geometry.rotateX(-Math.PI / 2);
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(geometry, material);
+    ring.position.y = -1.7;
+    ring.visible = false;
+    creature.add(ring);
+    creature.userData.selectionRing = ring;
+
+    const hitbox = new THREE.Mesh(
+      new THREE.SphereGeometry(4.2, 8, 6),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    hitbox.position.y = -0.5;
+    creature.add(hitbox);
   }
 
   #buildFireflyCreature(index) {
     const group = new THREE.Group();
-
-    // 1. Kepala & Antena
-    const headGeom = new THREE.SphereGeometry(0.55, 10, 10);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.3 });
-    const head = new THREE.Mesh(headGeom, headMat);
-    head.position.set(0, 0, 1.05);
-    group.add(head);
-
-    const antMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-    [-0.24, 0.24].forEach((xOff) => {
-      const antGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.75, 6);
-      antGeom.rotateX(Math.PI / 4);
-      const ant = new THREE.Mesh(antGeom, antMat);
-      ant.position.set(xOff, 0.35, 1.35);
-      group.add(ant);
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: 0x604126,
+      roughness: 0.8,
+      flatShading: true
     });
-
-    // 2. Badan / Thorax Chitin
-    const thoraxGeom = new THREE.CapsuleGeometry(0.65, 0.5, 8, 8);
-    thoraxGeom.rotateX(Math.PI / 2);
-    const thoraxMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.4, metalness: 0.2 });
-    const thorax = new THREE.Mesh(thoraxGeom, thoraxMat);
-    thorax.position.set(0, 0, 0.3);
+    const headMat = new THREE.MeshStandardMaterial({
+      color: 0x32251e,
+      roughness: 0.8,
+      flatShading: true
+    });
+    const thorax = new THREE.Mesh(new THREE.IcosahedronGeometry(0.72, 0), shellMat);
+    thorax.scale.set(0.8, 0.72, 1.25);
+    thorax.position.set(0, 0, 0.15);
     group.add(thorax);
 
-    // 3. Abdomen Lantern (Bioluminesensi Bercahaya Terang)
-    const bulbGeom = new THREE.SphereGeometry(0.85, 14, 14);
+    const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), headMat);
+    head.position.set(0, 0.05, 1.05);
+    group.add(head);
+
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0b0908 });
+    [-0.28, 0.28].forEach((x) => {
+      const eye = new THREE.Mesh(new THREE.IcosahedronGeometry(0.11, 0), eyeMat);
+      eye.position.set(x, 0.12, 1.43);
+      group.add(eye);
+    });
+
+    const antennaMat = new THREE.MeshStandardMaterial({ color: 0x34251a, flatShading: true });
+    [-0.2, 0.2].forEach((x, i) => {
+      const antenna = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.74, 4), antennaMat);
+      antenna.position.set(x, 0.58, 1.22);
+      antenna.rotation.z = i === 0 ? 0.28 : -0.28;
+      antenna.rotation.x = Math.PI / 7;
+      group.add(antenna);
+    });
+
+    const bulbGeom = new THREE.IcosahedronGeometry(0.9, 1);
     const bulbMat = new THREE.MeshStandardMaterial({
-      color: 0xfef08a,
-      emissive: 0xfacc15,
-      emissiveIntensity: 1.25,
-      roughness: 0.2
+      color: 0xffe45a,
+      emissive: 0xffd600,
+      emissiveIntensity: 1.5,
+      roughness: 0.35,
+      flatShading: true
     });
     const bulb = new THREE.Mesh(bulbGeom, bulbMat);
-    bulb.position.set(0, -0.1, -0.9);
+    bulb.scale.set(0.88, 0.82, 1.1);
+    bulb.position.set(0, -0.18, -1.05);
     group.add(bulb);
     group.userData.bulb = bulb;
 
-    // Sumber Cahaya Nyata yang Menyinari Tanah di Bawahnya
-    const light = new THREE.PointLight(0xfacc15, 0.75, 14);
-    light.position.set(0, -0.2, -0.9);
+    const light = new THREE.PointLight(0xffd83d, 1.05, 18);
+    light.position.set(0, -0.2, -1.05);
     group.add(light);
     group.userData.light = light;
 
-    // 4. Sayap Transparan yang Mengepak
-    const wingGeom = new THREE.PlaneGeometry(1.5, 0.7);
     const wingMat = new THREE.MeshStandardMaterial({
-      color: 0xfef08a,
+      color: 0xb69b69,
       transparent: true,
-      opacity: 0.68,
+      opacity: 0.76,
       side: THREE.DoubleSide,
-      roughness: 0.2
+      roughness: 0.9,
+      flatShading: true
     });
-
-    const wingL = new THREE.Mesh(wingGeom, wingMat);
-    wingL.position.set(-0.7, 0.3, 0.1);
-    wingL.rotation.x = -Math.PI / 2;
+    const makeWing = (side) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute([
+          0, 0, 0,
+          side * 1.25, 0.98, 0,
+          side * 2.25, 0.38, 0,
+          0, 0, 0,
+          side * 2.25, 0.38, 0,
+          side * 1.7, -0.62, 0
+        ], 3)
+      );
+      geometry.computeVertexNormals();
+      return new THREE.Mesh(geometry, wingMat);
+    };
+    const wingL = makeWing(-1);
+    wingL.position.set(-0.28, 0.25, 0.18);
     group.add(wingL);
-
-    const wingR = new THREE.Mesh(wingGeom, wingMat);
-    wingR.position.set(0.7, 0.3, 0.1);
-    wingR.rotation.x = -Math.PI / 2;
+    const wingR = makeWing(1);
+    wingR.position.set(0.28, 0.25, 0.18);
     group.add(wingR);
 
     group.userData.wingLeft = wingL;
     group.userData.wingRight = wingR;
     group.userData.animOffset = index * 0.7;
 
+    const crown = new THREE.Group();
+    const crownMat = new THREE.MeshStandardMaterial({
+      color: 0xffd451,
+      emissive: 0x8a4b08,
+      emissiveIntensity: 0.45,
+      metalness: 0.68,
+      roughness: 0.28
+    });
+    crown.add(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.42, 0.14, 7), crownMat));
+    for (let point = 0; point < 5; point++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.095, 0.4, 4), crownMat);
+      spike.position.set((point - 2) * 0.17, 0.22, 0);
+      crown.add(spike);
+    }
+    crown.position.set(0, 1.65, 0.1);
+    crown.visible = false;
+    group.add(crown);
+
+    const badgeCanvas = document.createElement('canvas');
+    badgeCanvas.width = 256;
+    badgeCanvas.height = 64;
+    const badgeContext = badgeCanvas.getContext('2d');
+    if (badgeContext) {
+      badgeContext.fillStyle = 'rgba(24, 17, 44, 0.9)';
+      badgeContext.strokeStyle = '#facc15';
+      badgeContext.lineWidth = 4;
+      badgeContext.beginPath();
+      badgeContext.roundRect(4, 4, 248, 56, 20);
+      badgeContext.fill();
+      badgeContext.stroke();
+      badgeContext.fillStyle = '#fff';
+      badgeContext.font = 'bold 28px sans-serif';
+      badgeContext.textAlign = 'center';
+      badgeContext.textBaseline = 'middle';
+      badgeContext.fillText(`FIREFLY ${index + 1}`, 128, 33);
+    }
+    const badge = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(badgeCanvas),
+      transparent: true,
+      depthTest: false
+    }));
+    badge.scale.set(3.3, 0.82, 1);
+    badge.position.set(0, 2.85, 0.12);
+    badge.visible = false;
+    group.add(badge);
+    group.userData.alphaCrown = crown;
+    group.userData.alphaBadge = badge;
+
     return group;
   }
 
   #buildBatCreature(index) {
     const group = new THREE.Group();
-
-    // 1. Badan Aerodinamis Berbulu Ungu Gelap
-    const bodyGeom = new THREE.CapsuleGeometry(0.75, 1.1, 8, 8);
-    bodyGeom.rotateX(Math.PI / 2);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2e1065, roughness: 0.7, metalness: 0.1 });
-    const body = new THREE.Mesh(bodyGeom, bodyMat);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8c7fd6, roughness: 0.48, metalness: 0.08 });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 12), bodyMat);
+    body.scale.set(0.92, 1.12, 0.9);
+    body.position.y = 0.1;
     group.add(body);
 
-    // 2. Kepala dengan Moncong & Mata
-    const headGeom = new THREE.SphereGeometry(0.62, 10, 10);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.6 });
-    const head = new THREE.Mesh(headGeom, headMat);
-    head.position.set(0, 0.15, 1.0);
+    const belly = new THREE.Mesh(
+      new THREE.SphereGeometry(0.58, 12, 10),
+      new THREE.MeshStandardMaterial({ color: 0xe0dcfc, roughness: 0.62 })
+    );
+    belly.scale.set(0.84, 0.92, 0.38);
+    belly.position.set(0, -0.08, 0.69);
+    group.add(belly);
+
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.69, 14, 12),
+      new THREE.MeshStandardMaterial({ color: 0x9b8de0, roughness: 0.44 })
+    );
+    head.position.set(0, 0.82, 0.44);
     group.add(head);
 
-    const snoutGeom = new THREE.ConeGeometry(0.28, 0.45, 6);
-    snoutGeom.rotateX(Math.PI / 2);
-    const snout = new THREE.Mesh(snoutGeom, headMat);
-    snout.position.set(0, 0.05, 1.5);
-    group.add(snout);
-
-    // Telinga Kelelawar Meruncing (Radar Echolocation)
-    const earMat = new THREE.MeshStandardMaterial({ color: 0xc084fc, roughness: 0.5 });
-    [-0.32, 0.32].forEach((xOff, i) => {
-      const earGeom = new THREE.ConeGeometry(0.3, 0.9, 4);
-      earGeom.scale(0.5, 1, 1);
-      const ear = new THREE.Mesh(earGeom, earMat);
-      ear.position.set(xOff, 0.65, 0.9);
-      ear.rotation.z = i === 0 ? 0.25 : -0.25;
+    const earOuter = new THREE.MeshStandardMaterial({ color: 0x8878ce, side: THREE.DoubleSide, roughness: 0.52 });
+    const earInner = new THREE.MeshBasicMaterial({ color: 0xf472b6, side: THREE.DoubleSide });
+    [-1, 1].forEach((side) => {
+      const earShape = new THREE.Shape();
+      earShape.moveTo(0, 0);
+      earShape.quadraticCurveTo(side * 0.06, 0.72, side * 0.42, 1.05);
+      earShape.quadraticCurveTo(side * 0.5, 0.36, side * 0.24, 0.06);
+      earShape.closePath();
+      const ear = new THREE.Group();
+      ear.add(new THREE.Mesh(new THREE.ShapeGeometry(earShape), earOuter));
+      const inner = new THREE.Mesh(new THREE.ShapeGeometry(earShape), earInner);
+      inner.scale.set(0.58, 0.62, 1);
+      inner.position.set(side * 0.06, 0.12, 0.025);
+      ear.add(inner);
+      ear.position.set(side * 0.43, 1.12, 0.28);
+      ear.rotation.z = side * -0.22;
       group.add(ear);
     });
 
-    // 3. Sayap Berselaput Mengepak (Articulated Bat Wings)
-    const makeBatWing = (isLeft) => {
-      const wGroup = new THREE.Group();
-      const geom = new THREE.BufferGeometry();
-      const s = isLeft ? -1 : 1;
-      const verts = new Float32Array([
-        0, 0, 0.3,
-        s * 2.2, 0.2, 0.8,
-        s * 1.6, -0.1, -0.6,
+    const eyeSocket = new THREE.MeshBasicMaterial({ color: 0x17142c });
+    const irisMat = new THREE.MeshBasicMaterial({ color: 0x69d8ff });
+    const glintMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    [-1, 1].forEach((side) => {
+      const eye = new THREE.Group();
+      const socket = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 8), eyeSocket);
+      socket.scale.set(0.82, 1.12, 0.5);
+      eye.add(socket);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), irisMat);
+      iris.position.set(0.015, 0, 0.08);
+      eye.add(iris);
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), glintMat);
+      glint.position.set(-0.025, 0.045, 0.15);
+      eye.add(glint);
+      eye.position.set(side * 0.28, 0.84, 1.0);
+      group.add(eye);
 
-        s * 2.2, 0.2, 0.8,
-        s * 3.6, 0.1, 0.2,
-        s * 2.9, -0.1, -0.9,
+      const blush = new THREE.Mesh(
+        new THREE.SphereGeometry(0.14, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.72 })
+      );
+      blush.scale.set(1.2, 0.62, 0.35);
+      blush.position.set(side * 0.48, 0.55, 0.94);
+      group.add(blush);
+    });
 
-        s * 2.2, 0.2, 0.8,
-        s * 2.9, -0.1, -0.9,
-        s * 1.6, -0.1, -0.6
-      ]);
-      geom.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-      geom.computeVertexNormals();
+    const mouth = new THREE.Mesh(
+      new THREE.TorusGeometry(0.105, 0.018, 5, 12, Math.PI),
+      new THREE.MeshBasicMaterial({ color: 0x241d35 })
+    );
+    mouth.position.set(0, 0.47, 1.06);
+    mouth.rotation.x = -Math.PI / 8;
+    group.add(mouth);
 
-      const wMat = new THREE.MeshStandardMaterial({
-        color: 0x4c1d95,
-        roughness: 0.55,
-        side: THREE.DoubleSide
-      });
-      const mesh = new THREE.Mesh(geom, wMat);
-      wGroup.add(mesh);
-      return wGroup;
+    const wingMats = [];
+    const makeBatWing = (side) => {
+      const pivot = new THREE.Group();
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.quadraticCurveTo(side * 0.9, 0.95, side * 1.9, 0.68);
+      shape.quadraticCurveTo(side * 1.62, 0.18, side * 1.48, -0.56);
+      shape.quadraticCurveTo(side * 1.13, -0.16, side * 0.88, -0.54);
+      shape.quadraticCurveTo(side * 0.4, -0.13, 0, -0.35);
+      shape.closePath();
+      const membrane = new THREE.Mesh(
+        new THREE.ShapeGeometry(shape),
+        new THREE.MeshStandardMaterial({
+          color: 0x5f54b8,
+          roughness: 0.62,
+          side: THREE.DoubleSide
+        })
+      );
+      wingMats.push(membrane.material);
+      pivot.add(membrane);
+
+      const arm = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.055, 0.035, 1.65, 6),
+        new THREE.MeshStandardMaterial({ color: 0x332c64, roughness: 0.65 })
+      );
+      arm.rotation.z = side * Math.PI / 3;
+      arm.position.set(side * 0.72, 0.3, 0.025);
+      pivot.add(arm);
+      pivot.position.set(side * 0.5, 0.34, 0.08);
+      group.add(pivot);
+      return pivot;
     };
 
-    const wingL = makeBatWing(true);
-    wingL.position.set(-0.5, 0.1, 0.2);
-    group.add(wingL);
+    const wingL = makeBatWing(-1);
+    const wingR = makeBatWing(1);
 
-    const wingR = makeBatWing(false);
-    wingR.position.set(0.5, 0.1, 0.2);
-    group.add(wingR);
+    const crown = new THREE.Group();
+    const crownGold = new THREE.MeshStandardMaterial({
+      color: 0xffd451,
+      emissive: 0x8a4b08,
+      emissiveIntensity: 0.5,
+      metalness: 0.68,
+      roughness: 0.28
+    });
+    const crownBase = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.46, 0.16, 7), crownGold);
+    crown.add(crownBase);
+    for (let point = 0; point < 5; point++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.48, 4), crownGold);
+      const angle = (point / 4 - 0.5) * Math.PI * 0.78;
+      spike.position.set(Math.sin(angle) * 0.34, 0.25, Math.cos(angle) * 0.12);
+      crown.add(spike);
+    }
+    const jewel = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.13, 0),
+      new THREE.MeshStandardMaterial({ color: 0xf472b6, emissive: 0x9d174d, emissiveIntensity: 0.8 })
+    );
+    jewel.position.set(0, 0.28, 0.42);
+    crown.add(jewel);
+    crown.position.set(0, 1.85, 0.22);
+    crown.visible = false;
+    group.add(crown);
+
+    const badgeCanvas = document.createElement('canvas');
+    badgeCanvas.width = 256;
+    badgeCanvas.height = 64;
+    const badgeContext = badgeCanvas.getContext('2d');
+    if (badgeContext) {
+      badgeContext.fillStyle = 'rgba(24, 17, 44, 0.9)';
+      badgeContext.strokeStyle = '#d7c8ff';
+      badgeContext.lineWidth = 4;
+      badgeContext.beginPath();
+      badgeContext.roundRect(4, 4, 248, 56, 20);
+      badgeContext.fill();
+      badgeContext.stroke();
+      badgeContext.fillStyle = '#fff';
+      badgeContext.font = 'bold 28px sans-serif';
+      badgeContext.textAlign = 'center';
+      badgeContext.textBaseline = 'middle';
+      badgeContext.fillText(`BAT ${index + 1}`, 128, 33);
+    }
+    const badge = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(badgeCanvas),
+      transparent: true,
+      depthTest: false
+    }));
+    badge.scale.set(3.3, 0.82, 1);
+    badge.position.set(0, 3.1, 0.12);
+    badge.visible = false;
+    group.add(badge);
 
     group.userData.wingLeft = wingL;
     group.userData.wingRight = wingR;
     group.userData.animOffset = index * 0.8;
+    group.userData.bodyMaterial = bodyMat;
+    group.userData.wingMaterials = wingMats;
+    group.userData.body = body;
+    group.userData.baseScale = 1.45;
+    group.userData.alphaCrown = crown;
+    group.userData.alphaBadge = badge;
 
     return group;
   }
@@ -813,16 +1233,24 @@ export class Landscape3DModal {
       lo: obj.min,
       hi: obj.max,
       fitness: f2d,
-      populationSize: 20,
       maxIterations: this.maxIterations,
       seed: 42
     };
 
-    this.faEngine = new FAEngine({ ...cfg, beta0: 1.0, gamma: 1.5, alpha: 0.25 });
-    this.baEngine = new BAEngine({ ...cfg, fMin: 0, fMax: 2, loudness0: 0.5, pulseRate0: 0.5 });
+    this.faEngine = new FAEngine({ ...cfg, populationSize: this.faPopulationSize, beta0: 1.0, gamma: 1.5, alpha: 0.25 });
+    this.baEngine = new BAEngine({
+      ...cfg,
+      populationSize: this.baPopulationSize,
+      fmin: 0,
+      fmax: this.baFmax,
+      loudness: 0.5,
+      pulseRate: 0.5
+    });
 
     this.#buildTerrainChunks();
     this.#syncSwarmPositions();
+    this.historyFA = [{ iteration: 0, bestFitness: this.faEngine.getState().best.fitness }];
+    this.historyBA = [{ iteration: 0, bestFitness: this.baEngine.getState().best.fitness }];
     this.#updateUI();
   }
 
@@ -845,8 +1273,8 @@ export class Landscape3DModal {
       const faSt = this.faEngine.getState();
       const baSt = this.baEngine.getState();
 
-      if (faSt.best) this.historyFA.push(faSt.best.fitness);
-      if (baSt.best) this.historyBA.push(baSt.best.fitness);
+      if (faSt.best) this.historyFA.push({ iteration: this.iteration, bestFitness: faSt.best.fitness });
+      if (baSt.best) this.historyBA.push({ iteration: this.iteration, bestFitness: baSt.best.fitness });
 
       if (this.iteration % 3 === 0) sound.playChime();
       else if (this.iteration % 3 === 1) sound.playPing();
@@ -867,17 +1295,171 @@ export class Landscape3DModal {
   #to3D(xNorm, yNorm) {
     const obj = landscapeById(this.currentObjId);
     const half = 40;
-    const zScale = 22;
-    const maxV = obj.maxVisualValue || 50;
 
     const u = (xNorm - obj.min) / (obj.max - obj.min);
     const v = (yNorm - obj.min) / (obj.max - obj.min);
     const x = -half + u * 80;
     const z = -half + v * 80;
-    const zVal = obj.evaluate(xNorm, yNorm);
-    const zNorm = Math.min(1.2, Math.max(0, zVal / maxV));
-    const y = zNorm * zScale;
-    return { x, y, z };
+    return { x, y: 0, z };
+  }
+
+  #pickAgent(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointerNdc.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const creatures = [
+      ...(this.viewMode === 'both' || this.viewMode === 'fa' ? this.faCreatures : []),
+      ...(this.viewMode === 'both' || this.viewMode === 'ba' ? this.baCreatures : [])
+    ];
+    for (const hit of this.raycaster.intersectObjects(creatures, true)) {
+      let creature = hit.object;
+      while (creature && !creature.userData.agentType) creature = creature.parent;
+      if (creature) {
+        return {
+          type: creature.userData.agentType,
+          index: creature.userData.agentIndex,
+          creature
+        };
+      }
+    }
+    return null;
+  }
+
+  #selectAgent(selection) {
+    if (this.selectedAgent?.creature) {
+      this.selectedAgent.creature.userData.selectionRing.visible = false;
+    }
+    this.selectedAgent = selection;
+    if (selection?.creature) {
+      selection.creature.userData.selectionRing.visible = true;
+    }
+
+    const hint = this.modal.querySelector('#sky-agent-hint');
+    const deleteButton = this.modal.querySelector('#sky-agent-delete');
+    if (deleteButton) deleteButton.hidden = !selection;
+    if (hint) {
+      if (!selection) {
+        hint.textContent = this.lang === 'ID'
+          ? 'Pilih unit, lalu seret untuk memindahkannya'
+          : 'Select a unit, then drag to move it';
+      } else {
+        const label = selection.type === 'fa'
+          ? (this.lang === 'ID' ? 'Kunang-kunang' : 'Firefly')
+          : (this.lang === 'ID' ? 'Kelelawar' : 'Bat');
+        hint.textContent = `${label} #${selection.index + 1} · ${
+          this.lang === 'ID' ? 'seret untuk pindah' : 'drag to move'
+        }`;
+      }
+    }
+  }
+
+  #moveSelectedAgent(event) {
+    if (!this.selectedAgent) return;
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointerNdc.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const point = this.raycaster.ray.intersectPlane(this.groundPlane, new THREE.Vector3());
+    if (!point) return;
+
+    const isFirefly = this.selectedAgent.type === 'fa';
+    const group = isFirefly ? this.faChunkGroup : this.baChunkGroup;
+    const engine = isFirefly ? this.faEngine : this.baEngine;
+    const creatures = isFirefly ? this.faCreatures : this.baCreatures;
+    const agent = engine.agents[this.selectedAgent.index];
+    if (!agent) return;
+
+    const obj = landscapeById(this.currentObjId);
+    const localX = THREE.MathUtils.clamp(point.x - group.position.x, -40, 40);
+    const localZ = THREE.MathUtils.clamp(point.z, -40, 40);
+    const position = [
+      obj.min + ((localX + 40) / 80) * (obj.max - obj.min),
+      obj.min + ((localZ + 40) / 80) * (obj.max - obj.min)
+    ];
+    agent.x = position;
+    agent.px = position.slice();
+    if (agent.stepFrom) agent.stepFrom = position.slice();
+    const terrainPosition = this.#to3D(position[0], position[1]);
+    const creature = creatures[this.selectedAgent.index];
+    const hoverY = terrainPosition.y + (isFirefly ? 7 : 9);
+    creature.position.set(terrainPosition.x, hoverY, terrainPosition.z);
+    creature.userData.flightTarget = { x: terrainPosition.x, y: hoverY, z: terrainPosition.z };
+    creature.userData.hoverBaseY = hoverY;
+    this.agentDragDirty = true;
+  }
+
+  #finishAgentMove() {
+    if (!this.agentDragDirty || !this.selectedAgent) return;
+    const isFirefly = this.selectedAgent.type === 'fa';
+    const engine = isFirefly ? this.faEngine : this.baEngine;
+    const agent = engine.agents[this.selectedAgent.index];
+    if (agent) {
+      agent.f = engine.evalFitness(agent.x);
+      if (!isFirefly) {
+        agent.v.fill(0);
+        agent.trial = null;
+        agent.trialF = null;
+        agent.accepted = null;
+      } else {
+        agent.attractor = -1;
+        agent.pull = 0;
+      }
+      engine.updateBest();
+      if (isFirefly) engine.rankAgents();
+      engine.phase = 'INIT';
+      engine.phaseLabel = isFirefly ? 'Sebar kunang-kunang' : 'Sebar kelelawar';
+    }
+    this.agentDragDirty = false;
+    this.#syncSwarmPositions();
+    this.#updateUI();
+  }
+
+  #destroySelectedAgent() {
+    if (!this.selectedAgent) return;
+    const isFirefly = this.selectedAgent.type === 'fa';
+    const engine = isFirefly ? this.faEngine : this.baEngine;
+    const creatures = isFirefly ? this.faCreatures : this.baCreatures;
+    if (engine.agents.length <= 2) {
+      const hint = this.modal.querySelector('#sky-agent-hint');
+      if (hint) {
+        hint.textContent = this.lang === 'ID'
+          ? 'Minimal 2 unit harus tersisa agar algoritma dapat berjalan'
+          : 'At least 2 units must remain for the algorithm to run';
+      }
+      sound.playClick();
+      return;
+    }
+
+    const index = this.selectedAgent.index;
+    const [creature] = creatures.splice(index, 1);
+    creature?.parent?.remove(creature);
+    engine.agents.splice(index, 1);
+    engine.populationSize = engine.agents.length;
+    creatures.forEach((unit, unitIndex) => {
+      unit.userData.agentIndex = unitIndex;
+    });
+    this.#selectAgent(null);
+    this.agentDragDirty = false;
+    this.#syncSwarmPositions();
+
+    const populationInput = this.modal.querySelector(
+      isFirefly ? '#sky-fa-population-input' : '#sky-ba-population-input'
+    );
+    const populationLabel = this.modal.querySelector(
+      isFirefly ? '#sky-fa-population-label' : '#sky-ba-population-label'
+    );
+    const count = engine.agents.length;
+    if (isFirefly) this.faPopulationSize = count;
+    else this.baPopulationSize = count;
+    if (populationInput) populationInput.value = String(count);
+    if (populationLabel) populationLabel.textContent = String(count);
+    sound.playSword();
+    this.#updateUI();
   }
 
   #syncSwarmPositions() {
@@ -886,11 +1468,29 @@ export class Landscape3DModal {
 
     // Kunang-Kunang
     if (faSt.agents) {
+      const bestPosition = faSt.best?.x;
+      const alphaIndex = bestPosition
+        ? faSt.agents.reduce((bestIdx, agent, index, agents) => {
+            const distance = (candidate) =>
+              candidate.x.reduce((sum, value, dim) => sum + (value - bestPosition[dim]) ** 2, 0);
+            return distance(agent) < distance(agents[bestIdx]) ? index : bestIdx;
+          }, 0)
+        : -1;
+
       faSt.agents.forEach((ind, i) => {
         const m = this.faCreatures[i];
         if (!m) return;
         const p = this.#to3D(ind.x[0], ind.x[1]);
-        m.position.set(p.x, p.y + 2.0, p.z);
+        const target = { x: p.x, y: p.y + 7, z: p.z };
+        if (!m.userData.flightReady) {
+          m.position.set(target.x, target.y, target.z);
+          m.userData.flightReady = true;
+        }
+        m.userData.flightTarget = target;
+        m.userData.hoverBaseY = p.y + 7;
+        const isAlpha = i === alphaIndex;
+        m.userData.alphaCrown.visible = isAlpha;
+        m.userData.alphaBadge.visible = isAlpha;
       });
     }
 
@@ -902,11 +1502,52 @@ export class Landscape3DModal {
 
     // Kelelawar
     if (baSt.agents) {
+      const bestPosition = baSt.best?.x;
+      const alphaIndex = bestPosition
+        ? baSt.agents.reduce((bestIdx, agent, index, agents) => {
+            const distance = (candidate) =>
+              candidate.x.reduce((sum, value, dim) => sum + (value - bestPosition[dim]) ** 2, 0);
+            return distance(agent) < distance(agents[bestIdx]) ? index : bestIdx;
+          }, 0)
+        : -1;
+      const bestPoint = bestPosition ? this.#to3D(bestPosition[0], bestPosition[1]) : null;
+
       baSt.agents.forEach((ind, i) => {
         const m = this.baCreatures[i];
         if (!m) return;
-        const p = this.#to3D(ind.x[0], ind.x[1]);
-        m.position.set(p.x, p.y + 2.6, p.z);
+        const isAlpha = i === alphaIndex;
+        const isNearLeader = bestPosition
+          && Math.hypot(ind.x[0] - bestPosition[0], ind.x[1] - bestPosition[1]) < 0.24;
+        let p = this.#to3D(ind.x[0], ind.x[1]);
+
+        if (isNearLeader && !isAlpha && bestPoint) {
+          const angle = i * 2.399963229728653;
+          const orbitRadius = 3.2 + (1 - (ind.A ?? 0.5)) * 1.8;
+          p = {
+            ...p,
+            x: bestPoint.x + Math.cos(angle) * orbitRadius,
+            z: bestPoint.z + Math.sin(angle) * orbitRadius
+          };
+        }
+
+        const target = { x: p.x, y: p.y + 9, z: p.z };
+        if (!m.userData.flightReady) {
+          m.position.set(target.x, target.y, target.z);
+          m.userData.flightReady = true;
+        }
+        m.userData.flightTarget = target;
+        m.userData.hoverBaseY = p.y + 9;
+        m.userData.alphaCrown.visible = isAlpha;
+        m.userData.alphaBadge.visible = isAlpha;
+        m.userData.bodyMaterial.color.setHex(isAlpha ? 0xff5fa2 : 0x8c7fd6);
+        m.userData.bodyMaterial.emissive.setHex(isAlpha ? 0x7a1f4a : 0x000000);
+        m.userData.bodyMaterial.emissiveIntensity = isAlpha ? 0.8 : 0;
+        m.userData.wingMaterials.forEach((material) => {
+          material.color.setHex(isAlpha ? 0xd94a8a : 0x5f54b8);
+        });
+        const scale = isAlpha ? 1.9 : m.userData.baseScale;
+        m.scale.setScalar(scale);
+        m.userData.isAlpha = isAlpha;
       });
     }
 
@@ -934,6 +1575,7 @@ export class Landscape3DModal {
       this.cameraAngle.phi = THREE.MathUtils.lerp(this.cameraAngle.phi, this.targetAngle.phi, 0.08);
       this.cameraAngle.radius = THREE.MathUtils.lerp(this.cameraAngle.radius, this.targetAngle.radius, 0.08);
       this.#updateCameraPosition();
+      this.#updateCameraOcclusion();
 
       // 2. Animasi Marker Pemimpin
       if (this.faBestMarker?.userData?.gem) this.faBestMarker.userData.gem.rotation.y += 0.035;
@@ -942,6 +1584,13 @@ export class Landscape3DModal {
       // 3. Animasi Kunang-Kunang: Cahaya Berdenyut + Kepakan Sayap
       this.faCreatures.forEach((c) => {
         const off = c.userData.animOffset || 0;
+        const target = c.userData.flightTarget;
+        if (target) {
+          c.position.x = THREE.MathUtils.lerp(c.position.x, target.x, 0.055);
+          c.position.z = THREE.MathUtils.lerp(c.position.z, target.z, 0.055);
+          c.rotation.y = Math.atan2(target.x - c.position.x, target.z - c.position.z);
+        }
+        c.position.y = (c.userData.hoverBaseY || 7) + Math.sin(t * 0.0026 + off) * 1.15;
         const pulse = 0.7 + 0.5 * Math.sin(t * 0.008 + off);
         if (c.userData.bulb) c.userData.bulb.material.emissiveIntensity = pulse;
         if (c.userData.light) c.userData.light.intensity = pulse * 0.8;
@@ -955,6 +1604,13 @@ export class Landscape3DModal {
       // 4. Animasi Kelelawar: Kepakan Sayap Aerodinamis + Fluktuasi Ketinggian
       this.baCreatures.forEach((b) => {
         const off = b.userData.animOffset || 0;
+        const target = b.userData.flightTarget;
+        if (target) {
+          b.position.x = THREE.MathUtils.lerp(b.position.x, target.x, 0.055);
+          b.position.z = THREE.MathUtils.lerp(b.position.z, target.z, 0.055);
+          b.rotation.y = Math.atan2(target.x - b.position.x, target.z - b.position.z);
+        }
+        b.position.y = (b.userData.hoverBaseY || 9) + Math.sin(t * 0.002 + off + 1.2) * 1.6;
         const flap = Math.sin(t * 0.012 + off) * 0.55;
         if (b.userData.wingLeft) b.userData.wingLeft.rotation.z = flap;
         if (b.userData.wingRight) b.userData.wingRight.rotation.z = -flap;
@@ -1017,12 +1673,12 @@ export class Landscape3DModal {
     this.povMode = pov;
     if (pov === 'iso') {
       // Sudut Isometrik AoE (~45° azimuth, 34° elevasi)
-      this.targetAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 245 };
-      this.cameraTarget.set(0, -4, 0);
+      this.targetAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 290 };
+      this.cameraTarget.set(0, 8, 0);
     } else if (pov === 'bird') {
       // Bird's Eye View (Overhead tegak lurus melihat medan & kontur dari langit)
-      this.targetAngle = { theta: 0, phi: 0.05, radius: 260 };
-      this.cameraTarget.set(0, 0, 0);
+      this.targetAngle = { theta: 0, phi: 0.05, radius: 320 };
+      this.cameraTarget.set(0, 6, 0);
     }
   }
 
@@ -1067,6 +1723,38 @@ export class Landscape3DModal {
     if (baBestEl) baBestEl.textContent = (baSt.best?.fitness ?? 0).toFixed(4);
     if (baIterEl) baIterEl.textContent = `${this.iteration} / ${this.maxIterations}`;
     if (baLoudEl) baLoudEl.textContent = (baSt.meanA ?? 0.5).toFixed(2);
+    const faCountEl = this.modal.querySelector('#fa-val-count');
+    const baCountEl = this.modal.querySelector('#ba-val-count');
+    const baFmaxEl = this.modal.querySelector('#ba-val-fmax');
+    if (faCountEl) faCountEl.textContent = String(faSt.agents.length);
+    if (baCountEl) baCountEl.textContent = String(baSt.agents.length);
+    if (baFmaxEl) baFmaxEl.textContent = this.baFmax.toFixed(1);
+
+    const faInitial = this.historyFA[0]?.bestFitness ?? faSt.best?.fitness ?? 0;
+    const baInitial = this.historyBA[0]?.bestFitness ?? baSt.best?.fitness ?? 0;
+    const faBest = faSt.best;
+    const baBest = baSt.best;
+    const objective = landscapeById(this.currentObjId);
+    const convergenceObjective = this.modal.querySelector('#sky-convergence-objective');
+    const convergenceSubtitle = this.modal.querySelector('#sky-convergence-subtitle');
+    if (convergenceObjective) {
+      convergenceObjective.textContent = isID ? `Objektif: ${objective.name}` : `Objective: ${objective.name}`;
+    }
+    if (convergenceSubtitle) {
+      convergenceSubtitle.textContent = isID
+        ? 'Fitness terbaik pada tiap iterasi · semakin rendah semakin baik'
+        : 'Best fitness at each iteration · lower is better';
+    }
+    const setMetric = (id, value) => {
+      const el = this.modal.querySelector(`#${id}`);
+      if (el) el.textContent = value;
+    };
+    setMetric('fa-val-improvement', (faInitial - (faBest?.fitness ?? faInitial)).toFixed(4));
+    setMetric('ba-val-improvement', (baInitial - (baBest?.fitness ?? baInitial)).toFixed(4));
+    setMetric('fa-val-position', faBest ? `(${faBest.x[0].toFixed(2)}, ${faBest.x[1].toFixed(2)})` : '—');
+    setMetric('ba-val-position', baBest ? `(${baBest.x[0].toFixed(2)}, ${baBest.x[1].toFixed(2)})` : '—');
+    setMetric('fa-val-evaluations', faSt.evaluations.toLocaleString());
+    setMetric('ba-val-evaluations', baSt.evaluations.toLocaleString());
 
     if (roundText) {
       roundText.textContent = isID
@@ -1080,8 +1768,8 @@ export class Landscape3DModal {
 
     if (isID) {
       if (this.stepPhase === 1) {
-        if (narFA) narFA.innerHTML = `<b>Kunang-Kunang: ① Ukur.</b> Menghitung intensitas cahaya lantern <i>I</i> = fitness pada ketinggian medan. Lembah terendah tampak paling terang.`;
-        if (narBA) narBA.innerHTML = `<b>Kelelawar: ① Ukur.</b> Memancarkan pulsa sonar ultrasonik frekuensi <i>f</i>. Mengukur pantulan gema echo dari kontur medan terdekat.`;
+        if (narFA) narFA.innerHTML = `<b>Kunang-Kunang: ① Ukur.</b> Mengindra intensitas lentera dan mengukur fitness dari titik-titik di dalam ruangan.`;
+        if (narBA) narBA.innerHTML = `<b>Kelelawar: ① Ukur.</b> Memancarkan pulsa sonar ultrasonik <i>f</i> untuk membaca gema dinding gua dan menemukan kristal putih.`;
       } else if (this.stepPhase === 2) {
         if (narFA) narFA.innerHTML = `<b>Kunang-Kunang: ② Tentukan.</b> Menghitung daya tarik β(r) = β₀ e^(-γ r²). Yang lebih redup menentukan arah terbang menuju kunang-kunang yang lebih benderang.`;
         if (narBA) narBA.innerHTML = `<b>Kelelawar: ② Tentukan.</b> Mengevaluasi kelantangan <i>A</i> dan frekuensi pulsa <i>r</i>. Jika rand > r, lakukan penelusuran lokal eksploitasi pemimpin <i>x*</i>.`;
@@ -1091,8 +1779,8 @@ export class Landscape3DModal {
       }
     } else {
       if (this.stepPhase === 1) {
-        if (narFA) narFA.innerHTML = `<b>Firefly: ① Measure.</b> Measuring lantern brightness <i>I</i> = fitness across terrain. Deeper valleys glow brighter.`;
-        if (narBA) narBA.innerHTML = `<b>Bat: ① Measure.</b> Emitting ultrasonic sonar pulses <i>f</i>. Reading acoustic echoes bouncing off topography.`;
+        if (narFA) narFA.innerHTML = `<b>Firefly: ① Measure.</b> Sensing lantern intensity and evaluating fitness at positions across the room.`;
+        if (narBA) narBA.innerHTML = `<b>Bat: ① Measure.</b> Emitting ultrasonic pulses <i>f</i> to read cave echoes and locate the white crystal.`;
       } else if (this.stepPhase === 2) {
         if (narFA) narFA.innerHTML = `<b>Firefly: ② Decide.</b> Computing attraction β(r) = β₀ e^(-γ r²). Dimmer fireflies lock onto brighter peers.`;
         if (narBA) narBA.innerHTML = `<b>Bat: ② Decide.</b> Evaluating loudness <i>A</i> and pulse rate <i>r</i>. If rand > r, local exploitation around leader <i>x*</i> begins.`;
@@ -1111,52 +1799,30 @@ export class Landscape3DModal {
     if (bFA) bFA.style.display = (this.viewMode === 'both' || this.viewMode === 'fa') ? 'flex' : 'none';
     if (bBA) bBA.style.display = (this.viewMode === 'both' || this.viewMode === 'ba') ? 'flex' : 'none';
 
-    this.#drawSparkline();
+    this.#drawConvergenceChart();
   }
 
-  #drawSparkline() {
-    const cv = this.modal.querySelector('#sky-sparkline-cv');
-    if (!cv) return;
-    const ctx = cv.getContext('2d');
-    const w = cv.width;
-    const h = cv.height;
-
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = 'rgba(0,0,0,0.06)';
-    ctx.fillRect(0, 0, w, h);
-
-    if (this.historyFA.length < 2) return;
-
-    const maxVal = Math.max(...this.historyFA, ...this.historyBA, 1);
-    const n = this.maxIterations;
-
-    // FA (Cyan)
-    ctx.strokeStyle = '#06b6d4';
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    this.historyFA.forEach((val, i) => {
-      const x = (i / n) * w;
-      const y = h - (val / maxVal) * (h - 6) - 3;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-
-    // BA (Ungu)
-    ctx.strokeStyle = '#9333ea';
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    this.historyBA.forEach((val, i) => {
-      const x = (i / n) * w;
-      const y = h - (val / maxVal) * (h - 6) - 3;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+  #drawConvergenceChart() {
+    const panel = this.modal.querySelector('#sky-convergence-panel');
+    const cv = this.modal.querySelector('#sky-convergence-cv');
+    if (!cv || !panel?.open) return;
+    renderConvergenceChart(cv, [
+      { label: 'Firefly', color: '#06b6d4', fill: 'rgba(6, 182, 212, 0.12)', data: this.historyFA },
+      { label: 'Bat', color: '#9333ea', data: this.historyBA }
+    ], { maxIterations: this.maxIterations, yMin: 0, legend: true, decimals: 3 });
   }
 
   // ==========================================================================
   // 11. EVENT LISTENERS
   // ==========================================================================
   #bindEvents() {
+    this.modal.querySelector('#sky-convergence-panel')?.addEventListener('toggle', () => {
+      if (this.modal.querySelector('#sky-convergence-panel')?.open) this.#drawConvergenceChart();
+    });
+    this.modal.querySelector('#sky-agent-delete')?.addEventListener('click', () => {
+      this.#destroySelectedAgent();
+    });
+
     // 1. Tutup
     this.modal.querySelector('#sky-btn-close')?.addEventListener('click', () => this.close());
 
@@ -1242,13 +1908,52 @@ export class Landscape3DModal {
       if (spLabel) spLabel.textContent = `${this.speed.toFixed(1)}x`;
     });
 
+    const tuningInputs = [
+      { id: '#sky-fa-population-input', output: '#sky-fa-population-label', value: 'faPopulationSize', parse: Number },
+      { id: '#sky-ba-population-input', output: '#sky-ba-population-label', value: 'baPopulationSize', parse: Number },
+      { id: '#sky-fmax-input', output: '#sky-fmax-label', value: 'baFmax', parse: (value) => Number(value) }
+    ];
+    tuningInputs.forEach(({ id, output, value, parse }) => {
+      const input = this.modal.querySelector(id);
+      const label = this.modal.querySelector(output);
+      input?.addEventListener('input', (e) => {
+        const nextValue = parse(e.target.value);
+        if (label) label.textContent = value === 'baFmax' ? nextValue.toFixed(1) : String(nextValue);
+      });
+      input?.addEventListener('change', (e) => {
+        this[value] = parse(e.target.value);
+        this.isPlaying = false;
+        if (playBtn) playBtn.textContent = '▶️';
+        this.#resetSimulation();
+      });
+    });
+
     // 9. Kontrol Mouse Drag untuk Rotasi Kamera Bebas
     this.canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const selection = this.#pickAgent(e);
+      this.#selectAgent(selection);
+      if (selection) {
+        if (this.isPlaying) {
+          this.isPlaying = false;
+          const playButton = this.modal.querySelector('#sky-act-play');
+          if (playButton) playButton.textContent = '▶️';
+        }
+        this.isMovingAgent = true;
+        this.agentDragDirty = false;
+        this.canvas.style.cursor = 'grabbing';
+        return;
+      }
+
       this.isDragging = true;
       this.prevMouse = { x: e.clientX, y: e.clientY };
     });
 
     window.addEventListener('mousemove', (e) => {
+      if (this.isMovingAgent) {
+        this.#moveSelectedAgent(e);
+        return;
+      }
       if (!this.isDragging) return;
       const dx = e.clientX - this.prevMouse.x;
       const dy = e.clientY - this.prevMouse.y;
@@ -1260,12 +1965,28 @@ export class Landscape3DModal {
 
     window.addEventListener('mouseup', () => {
       this.isDragging = false;
+      if (this.isMovingAgent) {
+        this.isMovingAgent = false;
+        this.canvas.style.cursor = 'grab';
+        this.#finishAgentMove();
+      }
+    });
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('keydown', (e) => {
+      if (
+        (e.key === 'Delete' || e.key === 'Backspace') &&
+        this.selectedAgent &&
+        !this.modal.classList.contains('hidden')
+      ) {
+        e.preventDefault();
+        this.#destroySelectedAgent();
+      }
     });
 
     // Zoom Scroll Wheel
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      this.targetAngle.radius = Math.max(120, Math.min(380, this.targetAngle.radius + e.deltaY * 0.22));
+      this.targetAngle.radius = Math.max(70, Math.min(380, this.targetAngle.radius + e.deltaY * 0.22));
     }, { passive: false });
   }
 
@@ -1277,42 +1998,94 @@ export class Landscape3DModal {
     const step2 = this.modal.querySelector('#chip-step-2');
     const step3 = this.modal.querySelector('#chip-step-3');
     const speedTxt = this.modal.querySelector('#sky-speed-txt');
-    const sparkTxt = this.modal.querySelector('#sky-spark-txt');
+    const convergenceTitle = this.modal.querySelector('#sky-convergence-title');
     const bFATitle = this.modal.querySelector('#badge-fa-title');
     const bBATitle = this.modal.querySelector('#badge-ba-title');
     const lFABest = this.modal.querySelector('#lbl-fa-best');
     const lFAIter = this.modal.querySelector('#lbl-fa-iter');
     const lBABest = this.modal.querySelector('#lbl-ba-best');
     const lBAIter = this.modal.querySelector('#lbl-ba-iter');
+    const lFACount = this.modal.querySelector('#lbl-fa-count');
+    const lBACount = this.modal.querySelector('#lbl-ba-count');
+    const lBAFmax = this.modal.querySelector('#lbl-ba-fmax');
+    const faPopulationTxt = this.modal.querySelector('#sky-fa-population-txt');
+    const baPopulationTxt = this.modal.querySelector('#sky-ba-population-txt');
+    const fmaxTxt = this.modal.querySelector('#sky-fmax-txt');
+    const agentHint = this.modal.querySelector('#sky-agent-hint');
+    const agentDelete = this.modal.querySelector('#sky-agent-delete');
+    const faImprovement = this.modal.querySelector('#lbl-fa-improvement');
+    const baImprovement = this.modal.querySelector('#lbl-ba-improvement');
+    const faPosition = this.modal.querySelector('#lbl-fa-position');
+    const baPosition = this.modal.querySelector('#lbl-ba-position');
+    const faEvaluations = this.modal.querySelector('#lbl-fa-evaluations');
+    const baEvaluations = this.modal.querySelector('#lbl-ba-evaluations');
+    const sceneFaLabel = this.modal.querySelector('#scene-fa-label');
+    const sceneBaLabel = this.modal.querySelector('#scene-ba-label');
 
     if (isID) {
-      if (titleText) titleText.textContent = 'Sky Optimizers 3D';
-      if (subText) subText.textContent = 'Dua Cara Menemukan Lembah Terendah: Ordo Kunang-Kunang vs Legiun Kelelawar';
+      if (titleText) titleText.textContent = 'Firefly & Bat 3D';
+      if (subText) subText.textContent = 'Kunang-kunang mengejar lentera · Kelelawar memburu kristal putih di dalam gua';
+      if (sceneFaLabel) sceneFaLabel.textContent = 'RUANG LENTERA';
+      if (sceneBaLabel) sceneBaLabel.textContent = 'GUA KRISTAL PUTIH';
       if (step1) step1.textContent = '① Ukur (Measure)';
       if (step2) step2.textContent = '② Tentukan (Decide)';
       if (step3) step3.textContent = '③ Gerak (Move)';
-      if (speedTxt) speedTxt.textContent = 'Kecepatan:';
-      if (sparkTxt) sparkTxt.textContent = 'Konvergensi:';
+      if (speedTxt) speedTxt.textContent = 'Kecepatan';
+      if (convergenceTitle) convergenceTitle.textContent = 'Grafik konvergensi';
       if (bFATitle) bFATitle.textContent = 'Ordo Kunang-Kunang';
       if (bBATitle) bBATitle.textContent = 'Legiun Kelelawar';
       if (lFABest) lFABest.textContent = 'Terbaik:';
       if (lFAIter) lFAIter.textContent = 'Iterasi:';
       if (lBABest) lBABest.textContent = 'Terbaik:';
       if (lBAIter) lBAIter.textContent = 'Iterasi:';
+      if (lFACount) lFACount.textContent = 'Pasukan:';
+      if (lBACount) lBACount.textContent = 'Pasukan:';
+      if (lBAFmax) lBAFmax.textContent = 'Frekuensi maks.:';
+      if (faPopulationTxt) faPopulationTxt.textContent = 'Jumlah kunang-kunang';
+      if (baPopulationTxt) baPopulationTxt.textContent = 'Jumlah kelelawar';
+      if (fmaxTxt) fmaxTxt.textContent = 'Frekuensi maksimum fₘₐₓ';
+      if (agentHint) agentHint.textContent = this.selectedAgent
+        ? `${this.selectedAgent.type === 'fa' ? 'Kunang-kunang' : 'Kelelawar'} #${this.selectedAgent.index + 1} · seret untuk pindah`
+        : 'Pilih unit, lalu seret untuk memindahkannya';
+      if (agentDelete) agentDelete.textContent = '🪓 Hancurkan unit';
+      if (faImprovement) faImprovement.textContent = 'Perbaikan fitness';
+      if (baImprovement) baImprovement.textContent = 'Perbaikan fitness';
+      if (faPosition) faPosition.textContent = 'Koordinat terbaik';
+      if (baPosition) baPosition.textContent = 'Koordinat terbaik';
+      if (faEvaluations) faEvaluations.textContent = 'Evaluasi fungsi';
+      if (baEvaluations) baEvaluations.textContent = 'Evaluasi fungsi';
     } else {
-      if (titleText) titleText.textContent = 'Sky Optimizers 3D';
-      if (subText) subText.textContent = 'Two Ways to Find the Lowest Valley: Firefly Swarm vs Bat Legion';
+      if (titleText) titleText.textContent = 'Firefly & Bat 3D';
+      if (subText) subText.textContent = 'Fireflies chase the lantern · Bats hunt the white crystal inside the cave';
+      if (sceneFaLabel) sceneFaLabel.textContent = 'LANTERN ROOM';
+      if (sceneBaLabel) sceneBaLabel.textContent = 'WHITE CRYSTAL CAVE';
       if (step1) step1.textContent = '① Measure';
       if (step2) step2.textContent = '② Decide';
       if (step3) step3.textContent = '③ Move';
-      if (speedTxt) speedTxt.textContent = 'Speed:';
-      if (sparkTxt) sparkTxt.textContent = 'Convergence:';
+      if (speedTxt) speedTxt.textContent = 'Speed';
+      if (convergenceTitle) convergenceTitle.textContent = 'Convergence chart';
       if (bFATitle) bFATitle.textContent = 'Firefly Swarm';
       if (bBATitle) bBATitle.textContent = 'Bat Legion';
       if (lFABest) lFABest.textContent = 'Best:';
       if (lFAIter) lFAIter.textContent = 'Round:';
       if (lBABest) lBABest.textContent = 'Best:';
       if (lBAIter) lBAIter.textContent = 'Round:';
+      if (lFACount) lFACount.textContent = 'Units:';
+      if (lBACount) lBACount.textContent = 'Units:';
+      if (lBAFmax) lBAFmax.textContent = 'Max frequency:';
+      if (faPopulationTxt) faPopulationTxt.textContent = 'Firefly population';
+      if (baPopulationTxt) baPopulationTxt.textContent = 'Bat population';
+      if (fmaxTxt) fmaxTxt.textContent = 'Maximum frequency fₘₐₓ';
+      if (agentHint) agentHint.textContent = this.selectedAgent
+        ? `${this.selectedAgent.type === 'fa' ? 'Firefly' : 'Bat'} #${this.selectedAgent.index + 1} · drag to move`
+        : 'Select a unit, then drag to move it';
+      if (agentDelete) agentDelete.textContent = '🪓 Destroy unit';
+      if (faImprovement) faImprovement.textContent = 'Fitness improvement';
+      if (baImprovement) baImprovement.textContent = 'Fitness improvement';
+      if (faPosition) faPosition.textContent = 'Best coordinates';
+      if (baPosition) baPosition.textContent = 'Best coordinates';
+      if (faEvaluations) faEvaluations.textContent = 'Function evaluations';
+      if (baEvaluations) baEvaluations.textContent = 'Function evaluations';
     }
   }
 }

@@ -253,6 +253,41 @@
       osc.start(now);
       osc.stop(now + 0.08);
     }
+    /** Satu seruan gagak serak sebagai penanda transisi adegan. */
+    playCrow() {
+      if (this.muted) return;
+      const ctx = __privateMethod(this, _SoundEngine_instances, ensure_fn).call(this);
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const duration = 0.62;
+      const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duration), ctx.sampleRate);
+      const samples = buffer.getChannelData(0);
+      for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
+      const source = ctx.createBufferSource();
+      const croak = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      source.buffer = buffer;
+      croak.type = "sawtooth";
+      croak.frequency.setValueAtTime(520, now);
+      croak.frequency.exponentialRampToValueAtTime(190, now + duration);
+      filter.type = "bandpass";
+      filter.Q.setValueAtTime(2.2, now);
+      filter.frequency.setValueAtTime(680, now);
+      filter.frequency.exponentialRampToValueAtTime(230, now + duration);
+      gain.gain.setValueAtTime(1e-4, now);
+      gain.gain.exponentialRampToValueAtTime(0.16, now + 0.035);
+      gain.gain.exponentialRampToValueAtTime(0.025, now + 0.22);
+      gain.gain.exponentialRampToValueAtTime(1e-4, now + duration);
+      source.connect(filter);
+      croak.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      source.start(now);
+      croak.start(now);
+      source.stop(now + duration);
+      croak.stop(now + duration);
+    }
     /** Denting benturan pedang besi RTS (Mulai Adu / Duel) */
     playSword() {
       if (this.muted) return;
@@ -454,7 +489,7 @@
   var TECH_TREE_DATA = {
     dark: {
       id: "dark",
-      name: "Era I \xB7 Zaman Gelap (Krisis Cloud & NP-Hard)",
+      name: "Act 1 \xB7 Krisis Cloud & NP-Hard",
       icon: "\u{1F3F0}",
       summary: "Fondasi matematika penjadwalan komputasi awan, ledakan ruang pencarian kombinatorial, dan kegagalan pendekatan heuristik konvensional.",
       nodes: [
@@ -502,7 +537,7 @@
     },
     feudal: {
       id: "feudal",
-      name: "Era II \xB7 Zaman Feodal (Ordo Kunang-Kunang / FA)",
+      name: "Act 2 \xB7 Ordo Kunang-Kunang / Firefly",
       icon: "\u{1F4A1}",
       summary: "Sains di balik Firefly Algorithm: hukum penyerapan cahaya Beer-Lambert, pergerakan berbasis daya tarik berjarak, dan kemampuan klasterisasi multimodal.",
       nodes: [
@@ -550,7 +585,7 @@
     },
     castle: {
       id: "castle",
-      name: "Era III \xB7 Zaman Kastil (Legiun Kelelawar / BA)",
+      name: "Act 3 \xB7 Legiun Kelelawar / Bat",
       icon: "\u{1F987}",
       summary: "Mekanisme Bat Algorithm: ekolokasi ultrasonik, transisi dinamis antara kelantangan (A) dan laju pulsa (r), serta penyerbuan presisi di sekitar pemimpin terbaik.",
       nodes: [
@@ -597,7 +632,7 @@
     },
     imperial: {
       id: "imperial",
-      name: "Era IV \xB7 Zaman Imperial (Penerapan Komputasi Awan)",
+      name: "Act 4 \xB7 Penerapan Komputasi Awan",
       icon: "\u2694\uFE0F",
       summary: "Teknik pemetaan ruang kontinu ke diskret, fungsi penalti sebaran beban VM, dan metodologi perbandingan eksperimen 10 beban kerja.",
       nodes: [
@@ -645,7 +680,7 @@
     },
     wonder: {
       id: "wonder",
-      name: "Era V \xB7 Keajaiban Dunia (Sintesis & Perbandingan Ilmiah)",
+      name: "Act 5 \xB7 Sintesis & Perbandingan Ilmiah",
       icon: "\u{1F3DB}\uFE0F",
       summary: "Bedah komparatif komprehensif antara Firefly Algorithm dan Bat Algorithm: kompleksitas waktu, sensitivitas parameter, dan panduan pemilihan di dunia industri.",
       nodes: [
@@ -829,1148 +864,46 @@
     `;
   };
 
-  // src/core/random.js
-  function splitmix32(seed) {
-    let s = seed >>> 0;
-    return () => {
-      s = s + 2654435769 >>> 0;
-      let z = s;
-      z = Math.imul(z ^ z >>> 16, 569420461);
-      z = Math.imul(z ^ z >>> 15, 1935289751);
-      return (z ^ z >>> 15) >>> 0;
-    };
-  }
-  function seedToInt(seed) {
-    if (typeof seed === "number" && Number.isFinite(seed)) return Math.trunc(seed) >>> 0;
-    let h = 2166136261;
-    for (const ch of String(seed ?? "42")) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-    return h >>> 0;
-  }
-  function createRandom(seed = 42) {
-    const mix2 = splitmix32(seedToInt(seed));
-    let a = mix2();
-    let b = mix2();
-    let c = mix2();
-    let d = mix2();
-    const next = () => {
-      const t = (a + b >>> 0) + d >>> 0;
-      d = d + 1 >>> 0;
-      a = b ^ b >>> 9;
-      b = c + (c << 3) >>> 0;
-      c = (c << 21 | c >>> 11) >>> 0;
-      c = c + t >>> 0;
-      return t / 4294967296;
-    };
-    for (let i = 0; i < 12; i++) next();
-    return {
-      next,
-      /** Bilangan real di [lo, hi). */
-      range: (lo, hi) => lo + (hi - lo) * next(),
-      /** Bilangan bulat di [lo, hi], keduanya termasuk. */
-      int: (lo, hi) => lo + Math.floor(next() * (hi - lo + 1))
-    };
-  }
-
-  // src/algorithms/firefly.js
-  var FA_DEFAULTS = {
-    populationSize: 20,
-    maxIterations: 30,
-    beta0: 1,
-    gamma: 2,
-    alpha: 0.25,
-    alphaDecay: 0.96
-  };
-  function attractiveness(beta0, gamma, r) {
-    return beta0 * Math.exp(-gamma * r * r);
-  }
-  var FAEngine = class {
-    constructor(config = {}) {
-      this.configure(config);
-    }
-    configure(config = {}) {
-      const c = { ...FA_DEFAULTS, ...config };
-      this.dim = c.dim ?? 2;
-      this.lo = c.lo ?? 0;
-      this.hi = c.hi ?? 1;
-      this.span = this.hi - this.lo;
-      this.fitnessFn = c.fitness;
-      this.populationSize = Math.max(2, Math.round(c.populationSize));
-      this.maxIterations = Math.max(1, Math.round(c.maxIterations));
-      this.beta0 = c.beta0;
-      this.gamma = c.gamma;
-      this.alpha0 = c.alpha;
-      this.alphaDecay = c.alphaDecay;
-      this.seed = c.seed ?? 42;
-      this.initial = c.initial || null;
-      this.reset();
-    }
-    clamp(v) {
-      return v < this.lo ? this.lo : v > this.hi ? this.hi : v;
-    }
-    reset() {
-      this.rng = createRandom(Number(this.seed) + 202);
-      this.iteration = 0;
-      this.alpha = this.alpha0;
-      this.evaluations = 0;
-      this.agents = [];
-      for (let i = 0; i < this.populationSize; i++) {
-        const x = this.initial && this.initial[i] ? this.initial[i].slice() : Array.from({ length: this.dim }, () => this.rng.range(this.lo, this.hi));
-        this.agents.push({
-          x,
-          px: x.slice(),
-          f: this.evalFitness(x),
-          glow: 0,
-          attractor: -1,
-          pull: 0,
-          stepFrom: x.slice(),
-          rank: 0
-        });
-      }
-      this.bestEver = null;
-      this.updateBest();
-      this.rankAgents();
-      this.history = [{ iteration: 0, bestFitness: this.bestEver.f }];
-      this.phase = "INIT";
-      this.phaseLabel = "Sebar kunang-kunang";
-      this.phaseDetail = `Menyebar ${this.populationSize} kunang-kunang secara acak di ruang pencarian.`;
-      this.done = false;
-      return this.getState();
-    }
-    evalFitness(x) {
-      this.evaluations++;
-      return this.fitnessFn(x);
-    }
-    updateBest() {
-      for (const a of this.agents) {
-        if (!this.bestEver || a.f < this.bestEver.f) this.bestEver = { x: a.x.slice(), f: a.f };
-      }
-    }
-    /** Peringkat 0 = paling terang. Glow dinormalkan 0..1 dari peringkat agar kecerahan terlihat jelas. */
-    rankAgents() {
-      const order = this.agents.map((_, i) => i).sort((a, b) => this.agents[a].f - this.agents[b].f);
-      order.forEach((idx, rank) => {
-        this.agents[idx].rank = rank;
-        this.agents[idx].glow = 1 - rank / Math.max(1, order.length - 1);
-      });
-      this.brightestIndex = order[0];
-    }
-    distance(a, b) {
-      let s = 0;
-      for (let d = 0; d < this.dim; d++) {
-        const diff = (a[d] - b[d]) / this.span;
-        s += diff * diff;
-      }
-      return Math.sqrt(s / this.dim);
-    }
-    step() {
-      if (this.done) return this.getState();
-      for (const a of this.agents) {
-        a.px = a.x.slice();
-        a.attractor = -1;
-        a.pull = 0;
-      }
-      if (this.phase === "INIT" || this.phase === "WALK") {
-        this.phase = "EVAL";
-        this.phaseLabel = "Ukur kecerahan";
-        this.rankAgents();
-        const best = this.agents[this.brightestIndex];
-        this.phaseDetail = `Kecerahan = kualitas solusi. Paling terang: f = ${best.f.toFixed(3)}.`;
-        return this.getState();
-      }
-      if (this.phase === "EVAL") {
-        this.phase = "MOVE";
-        this.phaseLabel = "Terbang ke yang lebih terang";
-        const snapshot = this.agents.map((a) => ({ x: a.x.slice(), f: a.f }));
-        let moves = 0;
-        for (let i = 0; i < this.agents.length; i++) {
-          const me = this.agents[i];
-          let strongest = 0;
-          for (let j = 0; j < snapshot.length; j++) {
-            if (snapshot[j].f < me.f) {
-              const r = this.distance(me.x, snapshot[j].x);
-              const beta = attractiveness(this.beta0, this.gamma, r);
-              for (let d = 0; d < this.dim; d++) me.x[d] += beta * (snapshot[j].x[d] - me.x[d]);
-              moves++;
-              if (beta > strongest) {
-                strongest = beta;
-                me.attractor = j;
-              }
-            }
-          }
-          me.pull = strongest;
-        }
-        this.phaseDetail = `${moves} tarikan terjadi. Makin jauh, makin lemah (\u03B2 = \u03B2\u2080\xB7e^(\u2212\u03B3r\xB2)).`;
-        return this.getState();
-      }
-      this.phase = "WALK";
-      this.phaseLabel = "Langkah acak kecil";
-      const stepSize = this.alpha * this.span;
-      for (const a of this.agents) {
-        a.stepFrom = a.x.slice();
-        for (let d = 0; d < this.dim; d++) {
-          a.x[d] = this.clamp(a.x[d] + stepSize * (this.rng.next() - 0.5));
-        }
-        a.f = this.evalFitness(a.x);
-      }
-      this.updateBest();
-      this.iteration++;
-      this.alpha *= this.alphaDecay;
-      this.history.push({ iteration: this.iteration, bestFitness: this.bestEver.f });
-      this.phaseDetail = `Iterasi ${this.iteration}: terbaik f = ${this.bestEver.f.toFixed(3)}. Langkah acak menyusut ke \u03B1 = ${this.alpha.toFixed(3)}.`;
-      if (this.iteration >= this.maxIterations) {
-        this.phase = "DONE";
-        this.phaseLabel = "Selesai";
-        this.done = true;
-        this.phaseDetail = `Selesai setelah ${this.iteration} iterasi dan ${this.evaluations} evaluasi. Terbaik f = ${this.bestEver.f.toFixed(4)}.`;
-      }
-      return this.getState();
-    }
-    /** Jalankan tahap sampai satu iterasi penuh selesai (dipakai simulasi cloud). */
-    runIteration() {
-      const target = this.iteration + 1;
-      let guard = 0;
-      while (!this.done && this.iteration < target && guard++ < 10) this.step();
-      return this.getState();
-    }
-    getState() {
-      return {
-        kind: "FA",
-        phase: this.phase,
-        phaseLabel: this.phaseLabel,
-        phaseDetail: this.phaseDetail,
-        iteration: this.iteration,
-        maxIterations: this.maxIterations,
-        evaluations: this.evaluations,
-        alpha: this.alpha,
-        agents: this.agents,
-        brightestIndex: this.brightestIndex,
-        best: this.bestEver ? { x: this.bestEver.x.slice(), fitness: this.bestEver.f } : null,
-        history: this.history,
-        done: this.done,
-        params: { beta0: this.beta0, gamma: this.gamma, alpha0: this.alpha0 }
-      };
-    }
-  };
-
-  // src/algorithms/bat.js
-  var BA_DEFAULTS = {
-    populationSize: 20,
-    maxIterations: 30,
-    fmin: 0,
-    fmax: 1.5,
-    loudness: 1,
-    pulseRate: 0.5,
-    alphaA: 0.9,
-    gammaR: 0.9,
-    localScale: 0.1
-  };
-  function loudnessAt(a0, alphaA, k) {
-    return a0 * Math.pow(alphaA, k);
-  }
-  function pulseRateAt(r0, gammaR, t) {
-    return r0 * (1 - Math.exp(-gammaR * t));
-  }
-  var BAEngine = class {
-    constructor(config = {}) {
-      this.configure(config);
-    }
-    configure(config = {}) {
-      const c = { ...BA_DEFAULTS, ...config };
-      this.dim = c.dim ?? 2;
-      this.lo = c.lo ?? 0;
-      this.hi = c.hi ?? 1;
-      this.span = this.hi - this.lo;
-      this.fitnessFn = c.fitness;
-      this.populationSize = Math.max(2, Math.round(c.populationSize));
-      this.maxIterations = Math.max(1, Math.round(c.maxIterations));
-      this.fmin = c.fmin;
-      this.fmax = c.fmax;
-      this.A0 = c.loudness;
-      this.r0 = c.pulseRate;
-      this.alphaA = c.alphaA;
-      this.gammaR = c.gammaR;
-      this.localScale = c.localScale;
-      this.seed = c.seed ?? 42;
-      this.initial = c.initial || null;
-      this.reset();
-    }
-    clamp(v) {
-      return v < this.lo ? this.lo : v > this.hi ? this.hi : v;
-    }
-    reset() {
-      this.rng = createRandom(Number(this.seed) + 101);
-      this.iteration = 0;
-      this.evaluations = 0;
-      this.agents = [];
-      for (let i = 0; i < this.populationSize; i++) {
-        const x = this.initial && this.initial[i] ? this.initial[i].slice() : Array.from({ length: this.dim }, () => this.rng.range(this.lo, this.hi));
-        this.agents.push({
-          x,
-          px: x.slice(),
-          v: new Array(this.dim).fill(0),
-          f: this.evalFitness(x),
-          A: this.A0,
-          r: 0,
-          freq: 0,
-          trial: null,
-          trialPrev: null,
-          trialF: null,
-          mode: null,
-          accepted: null
-        });
-      }
-      this.bestEver = null;
-      this.updateBest();
-      this.history = [{ iteration: 0, bestFitness: this.bestEver.f }];
-      this.phase = "INIT";
-      this.phaseLabel = "Sebar kelelawar";
-      this.phaseDetail = `Menyebar ${this.populationSize} kelelawar secara acak. Kenyaringan awal A = ${this.A0}.`;
-      this.done = false;
-      return this.getState();
-    }
-    evalFitness(x) {
-      this.evaluations++;
-      return this.fitnessFn(x);
-    }
-    updateBest() {
-      for (const a of this.agents) {
-        if (!this.bestEver || a.f < this.bestEver.f) this.bestEver = { x: a.x.slice(), f: a.f };
-      }
-    }
-    meanLoudness() {
-      return this.agents.reduce((s, a) => s + a.A, 0) / this.agents.length;
-    }
-    meanPulseRate() {
-      return this.agents.reduce((s, a) => s + a.r, 0) / this.agents.length;
-    }
-    step() {
-      if (this.done) return this.getState();
-      for (const a of this.agents) {
-        a.px = a.x.slice();
-        a.trialPrev = a.trial ? a.trial.slice() : null;
-      }
-      if (this.phase === "INIT" || this.phase === "ACCEPT") {
-        this.phase = "PULSE";
-        this.phaseLabel = "Pulsa: terbang menuju x*";
-        const best = this.bestEver.x;
-        for (const a of this.agents) {
-          a.freq = this.fmin + (this.fmax - this.fmin) * this.rng.next();
-          a.mode = "global";
-          a.accepted = null;
-          a.trialPrev = a.x.slice();
-          const trial = new Array(this.dim);
-          for (let d = 0; d < this.dim; d++) {
-            a.v[d] += (best[d] - a.x[d]) * a.freq;
-            const lim = 0.3 * this.span;
-            if (a.v[d] > lim) a.v[d] = lim;
-            if (a.v[d] < -lim) a.v[d] = -lim;
-            trial[d] = this.clamp(a.x[d] + a.v[d]);
-          }
-          a.trial = trial;
-          a.trialF = null;
-        }
-        this.phaseDetail = `Frekuensi acak f \u2208 [${this.fmin}, ${this.fmax}]. Posisi percobaan = posisi + kecepatan.`;
-        return this.getState();
-      }
-      if (this.phase === "PULSE") {
-        this.phase = "LOCAL";
-        this.phaseLabel = "Jelajah lokal di dekat x*";
-        const best = this.bestEver.x;
-        const meanA = this.meanLoudness();
-        let localCount = 0;
-        for (const a of this.agents) {
-          if (this.rng.next() > a.r) {
-            const trial = new Array(this.dim);
-            for (let d = 0; d < this.dim; d++) {
-              const eps = this.rng.range(-1, 1);
-              trial[d] = this.clamp(best[d] + eps * meanA * this.localScale * this.span);
-            }
-            a.trial = trial;
-            a.mode = "local";
-            localCount++;
-          }
-        }
-        for (const a of this.agents) a.trialF = this.evalFitness(a.trial);
-        this.phaseDetail = `${localCount} dari ${this.agents.length} kelelawar menjelajah lokal (rand > r). \u0100 = ${meanA.toFixed(2)}, r\u0304 = ${this.meanPulseRate().toFixed(2)}.`;
-        return this.getState();
-      }
-      this.phase = "ACCEPT";
-      this.phaseLabel = "Terima atau tolak";
-      this.iteration++;
-      let accepted = 0;
-      for (const a of this.agents) {
-        const ok = this.rng.next() < a.A && a.trialF < a.f;
-        a.accepted = ok;
-        if (ok) {
-          a.x = a.trial.slice();
-          a.f = a.trialF;
-          a.A *= this.alphaA;
-          a.r = pulseRateAt(this.r0, this.gammaR, this.iteration);
-          accepted++;
-        }
-      }
-      this.updateBest();
-      this.history.push({ iteration: this.iteration, bestFitness: this.bestEver.f });
-      this.phaseDetail = `${accepted} diterima, ${this.agents.length - accepted} ditolak. Terbaik f = ${this.bestEver.f.toFixed(3)}. \u0100 = ${this.meanLoudness().toFixed(2)}, r\u0304 = ${this.meanPulseRate().toFixed(2)}.`;
-      if (this.iteration >= this.maxIterations) {
-        this.phase = "DONE";
-        this.phaseLabel = "Selesai";
-        this.done = true;
-        this.phaseDetail = `Selesai setelah ${this.iteration} iterasi dan ${this.evaluations} evaluasi. Terbaik f = ${this.bestEver.f.toFixed(4)}.`;
-      }
-      return this.getState();
-    }
-    runIteration() {
-      const target = this.iteration + 1;
-      let guard = 0;
-      while (!this.done && this.iteration < target && guard++ < 10) this.step();
-      return this.getState();
-    }
-    getState() {
-      return {
-        kind: "BA",
-        phase: this.phase,
-        phaseLabel: this.phaseLabel,
-        phaseDetail: this.phaseDetail,
-        iteration: this.iteration,
-        maxIterations: this.maxIterations,
-        evaluations: this.evaluations,
-        agents: this.agents,
-        meanA: this.meanLoudness(),
-        meanR: this.meanPulseRate(),
-        best: this.bestEver ? { x: this.bestEver.x.slice(), fitness: this.bestEver.f } : null,
-        history: this.history,
-        done: this.done,
-        params: {
-          A0: this.A0,
-          r0: this.r0,
-          alphaA: this.alphaA,
-          gammaR: this.gammaR,
-          localRadius: this.meanLoudness() * this.localScale * this.span
-        }
-      };
-    }
-  };
-
-  // src/algorithms/cloudScheduling.js
-  var TIE_BREAK = 1e-3;
-  function makeVMs(m = 4) {
-    const names = ["Small", "Medium", "Large", "X-Large"];
-    return Array.from({ length: m }, (_, k) => ({
-      id: k,
-      name: `VM-${k + 1}`,
-      tier: m === 4 ? names[k] : `${85 + Math.round(90 * k / Math.max(1, m - 1))} MIPS`,
-      mips: m === 1 ? 130 : Math.round(85 + 90 * k / (m - 1))
-    }));
-  }
-  var DEFAULT_VMS = makeVMs(4);
-  function generateTasks(count = 16, seed = 2026) {
-    const rng = createRandom(seed);
-    return Array.from({ length: count }, (_, idx) => ({
-      id: idx + 1,
-      name: `T${idx + 1}`,
-      mi: rng.int(140, 620)
-    }));
-  }
-  function decodeSchedule(vector, vmCount) {
-    const maxIdx = vmCount - 1;
-    return vector.map((val) => {
-      const idx = Math.floor(val);
-      return idx < 0 ? 0 : idx > maxIdx ? maxIdx : idx;
-    });
-  }
-  function evaluateAssignment(assignment, tasks, vms = DEFAULT_VMS) {
-    const vmLoads = vms.map(() => 0);
-    const vmTasks = vms.map(() => []);
-    for (let i = 0; i < tasks.length; i++) {
-      const j = assignment[i];
-      const execSec = tasks[i].mi / vms[j].mips;
-      vmTasks[j].push({ ...tasks[i], execSec, start: vmLoads[j] });
-      vmLoads[j] += execSec;
-    }
-    let makespan = 0;
-    let sum = 0;
-    for (const l of vmLoads) {
-      if (l > makespan) makespan = l;
-      sum += l;
-    }
-    const mean = sum / vms.length;
-    let variance = 0;
-    for (const l of vmLoads) variance += (l - mean) * (l - mean);
-    const imbalanceStd = Math.sqrt(variance / vms.length);
-    return {
-      assignment,
-      vmLoads,
-      vmTasks,
-      makespan,
-      imbalanceStd,
-      fitness: makespan + TIE_BREAK * imbalanceStd
-    };
-  }
-  function evaluateSchedule(vector, tasks, vms = DEFAULT_VMS) {
-    return evaluateAssignment(decodeSchedule(vector, vms.length), tasks, vms);
-  }
-  function idealMakespan(tasks, vms = DEFAULT_VMS) {
-    const totalMI = tasks.reduce((s, t) => s + t.mi, 0);
-    const totalMips = vms.reduce((s, v) => s + v.mips, 0);
-    return totalMI / totalMips;
-  }
-  function roundRobin(tasks, vms = DEFAULT_VMS) {
-    return evaluateAssignment(tasks.map((_, i) => i % vms.length), tasks, vms);
-  }
-  function minMin(tasks, vms = DEFAULT_VMS) {
-    const ready = vms.map(() => 0);
-    const assignment = new Array(tasks.length).fill(-1);
-    let left = tasks.length;
-    while (left > 0) {
-      let bestTask = -1;
-      let bestVm = -1;
-      let bestCt = Infinity;
-      for (let i = 0; i < tasks.length; i++) {
-        if (assignment[i] >= 0) continue;
-        let minCt = Infinity;
-        let minVm = -1;
-        for (let j = 0; j < vms.length; j++) {
-          const ct = ready[j] + tasks[i].mi / vms[j].mips;
-          if (ct < minCt) {
-            minCt = ct;
-            minVm = j;
-          }
-        }
-        if (minCt < bestCt) {
-          bestCt = minCt;
-          bestTask = i;
-          bestVm = minVm;
-        }
-      }
-      assignment[bestTask] = bestVm;
-      ready[bestVm] = bestCt;
-      left--;
-    }
-    return evaluateAssignment(assignment, tasks, vms);
-  }
-  function sharedInitialPopulation(n, m, populationSize, seed) {
-    const rng = createRandom(Number(seed));
-    return Array.from(
-      { length: populationSize },
-      () => Array.from({ length: n }, () => rng.range(0, m - 1e-6))
-    );
-  }
-  var CLOUD_DEFAULTS = {
-    n: 16,
-    m: 4,
-    populationSize: 28,
-    maxIterations: 40,
-    seed: 42,
-    workloadSeed: 2026,
-    fa: { beta0: 1, gamma: 2, alpha: 0.25, alphaDecay: 0.96 },
-    ba: { fmin: 0, fmax: 1.5, loudness: 1, pulseRate: 0.5, alphaA: 0.9, gammaR: 0.9, localScale: 0.1 }
-  };
-  var CloudScheduleOptimizer = class {
-    constructor(options = {}) {
-      this.configure(options);
-    }
-    configure(options = {}) {
-      const o = { ...CLOUD_DEFAULTS, ...options };
-      this.n = o.n;
-      this.m = o.m;
-      this.vms = makeVMs(o.m);
-      this.tasks = options.tasks || generateTasks(o.n, o.workloadSeed);
-      this.populationSize = o.populationSize;
-      this.maxIterations = o.maxIterations;
-      this.seed = o.seed;
-      this.faParams = { ...CLOUD_DEFAULTS.fa, ...options.fa || {} };
-      this.baParams = { ...CLOUD_DEFAULTS.ba, ...options.ba || {} };
-      this.reset();
-    }
-    reset() {
-      const tasks = this.tasks;
-      const vms = this.vms;
-      const fitness = (x) => evaluateSchedule(x, tasks, vms).fitness;
-      const common2 = {
-        dim: tasks.length,
-        lo: 0,
-        hi: vms.length - 1e-6,
-        fitness,
-        populationSize: this.populationSize,
-        maxIterations: this.maxIterations,
-        seed: this.seed,
-        initial: sharedInitialPopulation(tasks.length, vms.length, this.populationSize, this.seed)
-      };
-      this.fa = new FAEngine({ ...common2, ...this.faParams });
-      this.ba = new BAEngine({ ...common2, ...this.baParams });
-      this.baselineRR = roundRobin(tasks, vms);
-      this.baselineMinMin = minMin(tasks, vms);
-      this.ideal = idealMakespan(tasks, vms);
-    }
-    get done() {
-      return this.fa.done && this.ba.done;
-    }
-    step() {
-      this.fa.runIteration();
-      this.ba.runIteration();
-      return this.getState();
-    }
-    run() {
-      while (!this.done) this.step();
-      return this.getState();
-    }
-    getState() {
-      const fa = this.fa.getState();
-      const ba = this.ba.getState();
-      return {
-        iteration: Math.max(fa.iteration, ba.iteration),
-        maxIterations: this.maxIterations,
-        fa,
-        ba,
-        evalFa: evaluateSchedule(fa.best.x, this.tasks, this.vms),
-        evalBa: evaluateSchedule(ba.best.x, this.tasks, this.vms),
-        baselineRR: this.baselineRR,
-        baselineMinMin: this.baselineMinMin,
-        ideal: this.ideal,
-        done: this.done
-      };
-    }
-  };
-  function runWorkload(w, { n = 16, m = 4, populationSize = 28, maxIterations = 40, seed = 42 } = {}) {
-    const tasks = generateTasks(n, 3e3 + w * 17);
-    const opt = new CloudScheduleOptimizer({ n, m, tasks, populationSize, maxIterations, seed: seed + w });
-    const st = opt.run();
-    return {
-      workload: w + 1,
-      ideal: opt.ideal,
-      rr: opt.baselineRR.makespan,
-      minmin: opt.baselineMinMin.makespan,
-      fa: st.evalFa.makespan,
-      ba: st.evalBa.makespan
-    };
-  }
-  function runExperiment({ workloads = 10, onWorkload, ...rest } = {}) {
-    const results = [];
-    for (let w = 0; w < workloads; w++) {
-      const row = runWorkload(w, rest);
-      results.push(row);
-      if (onWorkload) onWorkload(row, results);
-    }
-    return results;
-  }
-  function summarizeExperiment(rows) {
-    const avg = (key) => rows.reduce((s, r) => s + r[key], 0) / rows.length;
-    const ratio = (key) => rows.reduce((s, r) => s + r[key] / r.ideal, 0) / rows.length;
-    let faWins = 0;
-    let baWins = 0;
-    let ties = 0;
-    for (const r of rows) {
-      if (Math.abs(r.fa - r.ba) < 1e-9) ties++;
-      else if (r.fa < r.ba) faWins++;
-      else baWins++;
-    }
-    return {
-      count: rows.length,
-      avg: { rr: avg("rr"), minmin: avg("minmin"), fa: avg("fa"), ba: avg("ba"), ideal: avg("ideal") },
-      ratio: { rr: ratio("rr"), minmin: ratio("minmin"), fa: ratio("fa"), ba: ratio("ba") },
-      faWins,
-      baWins,
-      ties,
-      gainFaVsRR: (1 - avg("fa") / avg("rr")) * 100,
-      gainBaVsRR: (1 - avg("ba") / avg("rr")) * 100
-    };
-  }
-
-  // src/render/sprites.js
-  var COLORS = {
-    ink: "#f2f7ff",
-    muted: "#a9bbd6",
-    night: "#050d26",
-    navy: "#0b1a40",
-    blue: "#3b82f6",
-    blueLight: "#93c5fd",
-    cyan: "#22d3ee",
-    cyanLight: "#a5f3fc",
-    purple: "#8b5cf6",
-    purpleLight: "#c4b5fd",
-    pink: "#f472b6",
-    gold: "#fbbf24",
-    lime: "#a3e635",
-    coral: "#fb7185"
-  };
-  var FONT_BODY = '"Manrope", "Sora", sans-serif';
-  var FONT_MONO = '"Red Hat Mono", "Manrope", monospace';
-  function drawText(ctx, text, x, y, options = {}) {
-    const { size = 30, weight = 700, color = COLORS.ink, align = "left", mono = false, alpha = 1, baseline = "middle" } = options;
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.font = `${weight} ${size}px ${mono ? FONT_MONO : FONT_BODY}`;
-    ctx.fillStyle = color;
-    ctx.textAlign = align;
-    ctx.textBaseline = baseline;
-    ctx.fillText(text, x, y);
-    ctx.restore();
-  }
-  function drawPill(ctx, text, x, y, options = {}) {
-    const { size = 28, weight = 700, color = COLORS.night, fill = COLORS.gold, alpha = 1, mono = false } = options;
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.font = `${weight} ${size}px ${mono ? FONT_MONO : FONT_BODY}`;
-    const w = ctx.measureText(text).width + size * 1.2;
-    const h = size * 1.75;
-    ctx.beginPath();
-    ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.fillStyle = color;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, x, y + 1);
-    ctx.restore();
-  }
-  function drawGlow(ctx, x, y, radius, color) {
-    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    glow.addColorStop(0, color);
-    glow.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  function pseudo(i) {
-    const v = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-    return v - Math.floor(v);
-  }
-  var TINTS = {
-    blue: { top: "#071433", mid: "#0b1f55", bottom: "#0a1030", orbs: ["#2563eb", "#22d3ee", "#8b5cf6"] },
-    cyan: { top: "#04142e", mid: "#062a4d", bottom: "#041a2e", orbs: ["#22d3ee", "#3b82f6", "#8b5cf6"] },
-    purple: { top: "#0b0b2e", mid: "#1c1252", bottom: "#0a0a26", orbs: ["#8b5cf6", "#ec4899", "#3b82f6"] },
-    gold: { top: "#0a1233", mid: "#17154a", bottom: "#080f2b", orbs: ["#f59e0b", "#8b5cf6", "#22d3ee"] }
-  };
-  function drawBackdrop(ctx, t, tint = "blue", W = 1920, H = 1080) {
-    const p = TINTS[tint] || TINTS.blue;
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, p.top);
-    grad.addColorStop(0.55, p.mid);
-    grad.addColorStop(1, p.bottom);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    p.orbs.forEach((color, i) => {
-      const ox = W * (0.2 + 0.3 * i) + Math.sin(t * 0.13 + i * 2.1) * 140;
-      const oy = H * (0.35 + 0.18 * Math.sin(i * 1.7)) + Math.cos(t * 0.11 + i) * 90;
-      drawGlow(ctx, ox, oy, 560, hexToRgba(color, 0.2));
-    });
-    ctx.restore();
-    ctx.fillStyle = "rgba(165, 190, 255, 0.07)";
-    for (let gx = 40; gx < W; gx += 80) {
-      for (let gy = 40; gy < H; gy += 80) ctx.fillRect(gx, gy, 3, 3);
-    }
-    for (let i = 0; i < 70; i++) {
-      const sx = pseudo(i + 1) * W;
-      const sy = pseudo(i + 91) * H * 0.9;
-      const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * (0.5 + pseudo(i + 7)) + i));
-      ctx.fillStyle = `rgba(220, 235, 255, ${(0.18 + 0.5 * pseudo(i + 33)) * tw})`;
-      const s = 1.5 + pseudo(i + 55) * 2.4;
-      ctx.fillRect(sx, sy, s, s);
-    }
-  }
-  function hexToRgba(hex, alpha = 1) {
-    const h = hex.replace("#", "");
-    const n = parseInt(h.length === 3 ? h.replace(/(.)/g, "$1$1") : h, 16);
-    return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
-  }
-  function drawFirefly(ctx, x, y, size, options = {}) {
-    const { glow = 1, color = COLORS.cyan, core = "#f4fdff", t = 0, angle = 0, alpha = 1, crown = false } = options;
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.globalCompositeOperation = "lighter";
-    const g = Math.max(0.05, Math.min(1, glow));
-    drawGlow(ctx, x, y, size * (1.2 + 3.6 * g), hexToRgba(color, 0.18 + 0.5 * g));
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    const flap = Math.sin(t * 38 + x * 0.1) * 0.35;
-    ctx.fillStyle = "rgba(200, 235, 255, 0.45)";
-    for (const side of [-1, 1]) {
-      ctx.save();
-      ctx.rotate(side * (0.7 + flap));
-      ctx.beginPath();
-      ctx.ellipse(side * size * 0.45, -size * 0.35, size * 0.55, size * 0.2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-    ctx.fillStyle = "#10243f";
-    ctx.beginPath();
-    ctx.ellipse(0, -size * 0.2, size * 0.2, size * 0.34, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = hexToRgba(core, 0.35 + 0.65 * g);
-    ctx.beginPath();
-    ctx.ellipse(0, size * 0.28, size * 0.3, size * 0.44, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = hexToRgba(color, 0.55 * g);
-    ctx.beginPath();
-    ctx.ellipse(0, size * 0.28, size * 0.2, size * 0.32, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    if (crown) drawCrown(ctx, x, y - size * 0.95, size * 0.62);
-  }
-  function drawCrown(ctx, x, y, size) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.beginPath();
-    ctx.moveTo(-size, size * 0.5);
-    ctx.lineTo(-size, -size * 0.4);
-    ctx.lineTo(-size * 0.5, size * 0.05);
-    ctx.lineTo(0, -size * 0.6);
-    ctx.lineTo(size * 0.5, size * 0.05);
-    ctx.lineTo(size, -size * 0.4);
-    ctx.lineTo(size, size * 0.5);
-    ctx.closePath();
-    ctx.fillStyle = COLORS.gold;
-    ctx.strokeStyle = COLORS.night;
-    ctx.lineWidth = Math.max(1.5, size * 0.12);
-    ctx.lineJoin = "round";
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  }
-  function batWing(ctx, side, s, f) {
-    ctx.beginPath();
-    ctx.moveTo(0, -s * 0.1);
-    ctx.quadraticCurveTo(side * s * 0.9, -s * (0.75 + 0.5 * f), side * s * 1.7, -s * (0.2 + 0.9 * f));
-    ctx.quadraticCurveTo(side * s * 1.4, s * (0.05 - 0.2 * f), side * s * 1.2, s * (0.4 - 0.3 * f));
-    ctx.quadraticCurveTo(side * s * 0.9, s * (0.1 - 0.1 * f), side * s * 0.62, s * 0.5);
-    ctx.quadraticCurveTo(side * s * 0.34, s * 0.22, 0, s * 0.55);
-    ctx.closePath();
-  }
-  function drawBat(ctx, x, y, size, options = {}) {
-    const { color = COLORS.purple, edge = COLORS.purpleLight, flap = 0, angle = 0, alpha = 1, crown = false, glow = 0 } = options;
-    const f = Math.sin(flap);
-    if (glow > 0) {
-      ctx.save();
-      ctx.globalAlpha *= alpha;
-      drawGlow(ctx, x, y, size * (2 + 2 * glow), hexToRgba(edge, 0.3 * glow));
-      ctx.restore();
-    }
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.fillStyle = color;
-    ctx.strokeStyle = edge;
-    ctx.lineWidth = Math.max(1.5, size * 0.07);
-    ctx.lineJoin = "round";
-    for (const side of [-1, 1]) {
-      batWing(ctx, side, size, f);
-      ctx.fill();
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.ellipse(0, size * 0.1, size * 0.28, size * 0.42, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, -size * 0.4, size * 0.24, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    for (const side of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(side * size * 0.08, -size * 0.58);
-      ctx.lineTo(side * size * 0.3, -size * 0.92);
-      ctx.lineTo(side * size * 0.3, -size * 0.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#fff";
-    for (const side of [-1, 1]) {
-      ctx.beginPath();
-      ctx.arc(side * size * 0.1, -size * 0.43, size * 0.045, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-    if (crown) drawCrown(ctx, x, y - size * 1.15, size * 0.55);
-  }
-  function drawEcho(ctx, x, y, progress, color = COLORS.purpleLight, maxRadius = 120, alpha = 1) {
-    if (progress <= 0 || progress >= 1) return;
-    ctx.save();
-    ctx.strokeStyle = color;
-    for (const delay of [0, 0.25, 0.5]) {
-      const p = (progress - delay) / (1 - delay);
-      if (p <= 0 || p >= 1) continue;
-      ctx.globalAlpha = (1 - p) * 0.75 * alpha;
-      ctx.lineWidth = Math.max(1.4, maxRadius * 0.035 * (1 - p));
-      ctx.beginPath();
-      ctx.arc(x, y, maxRadius * p, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-  function drawStar(ctx, x, y, size, options = {}) {
-    const { glow = true, alpha = 1 } = options;
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    if (glow) drawGlow(ctx, x, y, size * 2.8, "rgba(251, 191, 36, 0.62)");
-    ctx.translate(x, y);
-    ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const r = i % 2 === 0 ? size : size * 0.44;
-      const a = i * Math.PI / 5 - Math.PI / 2;
-      if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-    ctx.closePath();
-    ctx.fillStyle = COLORS.gold;
-    ctx.strokeStyle = COLORS.night;
-    ctx.lineWidth = Math.max(1, size * 0.14);
-    ctx.lineJoin = "round";
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  }
-  function arcPoint(from, to, bend, p) {
-    const cx = (from.x + to.x) / 2;
-    const cy = (from.y + to.y) / 2 - bend;
-    const q = 1 - p;
-    return {
-      x: q * q * from.x + 2 * q * p * cx + p * p * to.x,
-      y: q * q * from.y + 2 * q * p * cy + p * p * to.y
-    };
-  }
-  function drawArrow(ctx, from, to, options = {}) {
-    const { bend = 0, color = COLORS.ink, width = 4, progress = 1, dashed = false, alpha = 1, head = true } = options;
-    if (progress <= 0) return;
-    const tip = arcPoint(from, to, bend, progress);
-    const before = arcPoint(from, to, bend, Math.max(0, progress - 0.03));
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineCap = "round";
-    if (dashed) ctx.setLineDash([width * 3, width * 2.4]);
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    const steps = Math.max(2, Math.ceil(progress * 28));
-    for (let i = 1; i <= steps; i++) {
-      const pt = arcPoint(from, to, bend, i / steps * progress);
-      ctx.lineTo(pt.x, pt.y);
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    if (head) {
-      const angle = Math.atan2(tip.y - before.y, tip.x - before.x);
-      const len = width * 4;
-      ctx.beginPath();
-      ctx.moveTo(tip.x + Math.cos(angle) * len * 0.3, tip.y + Math.sin(angle) * len * 0.3);
-      ctx.lineTo(tip.x - Math.cos(angle - 0.5) * len, tip.y - Math.sin(angle - 0.5) * len);
-      ctx.lineTo(tip.x - Math.cos(angle + 0.5) * len, tip.y - Math.sin(angle + 0.5) * len);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-  function drawCross(ctx, x, y, size, color = COLORS.coral, alpha = 1) {
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(3, size * 0.32);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(x - size, y - size);
-    ctx.lineTo(x + size, y + size);
-    ctx.moveTo(x + size, y - size);
-    ctx.lineTo(x - size, y + size);
-    ctx.stroke();
-    ctx.restore();
-  }
-  function drawCheck(ctx, x, y, size, color = COLORS.lime, alpha = 1) {
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(3, size * 0.32);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(x - size, y);
-    ctx.lineTo(x - size * 0.3, y + size * 0.7);
-    ctx.lineTo(x + size, y - size * 0.7);
-    ctx.stroke();
-    ctx.restore();
-  }
-  function drawMath(ctx, text, x, y, options = {}) {
-    const { size = 34, color = COLORS.ink, weight = 600, alpha = 1, measureOnly = false } = options;
-    const tokens = [];
-    const re = /([_^])(\{[^}]*\}|.)|([^_^]+)/g;
-    let m;
-    while (m = re.exec(text)) {
-      if (m[3] !== void 0) tokens.push({ t: m[3], mode: "n" });
-      else tokens.push({ t: m[2].replace(/^\{|\}$/g, ""), mode: m[1] === "_" ? "sub" : "sup" });
-    }
-    ctx.save();
-    ctx.globalAlpha *= alpha;
-    ctx.fillStyle = color;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    let cx = x;
-    for (const tok of tokens) {
-      const small = tok.mode !== "n";
-      const s = small ? size * 0.62 : size;
-      ctx.font = `${weight} ${s}px ${FONT_MONO}`;
-      const dy = tok.mode === "sub" ? size * 0.22 : tok.mode === "sup" ? -size * 0.3 : 0;
-      if (!measureOnly) ctx.fillText(tok.t, cx, y + dy);
-      cx += ctx.measureText(tok.t).width;
-    }
-    ctx.restore();
-    return cx - x;
-  }
-
-  // src/render/cloudRenderer.js
-  var TASK_COLORS = ["#3b82f6", "#22d3ee", "#8b5cf6", "#f472b6", "#fbbf24", "#a3e635", "#fb7185", "#38bdf8"];
-  function taskColor(id) {
-    return TASK_COLORS[(id - 1) % TASK_COLORS.length];
-  }
-  function layoutOf(ev) {
-    const map = /* @__PURE__ */ new Map();
-    ev.vmTasks.forEach((list, lane) => {
-      for (const t of list) map.set(t.id, { lane, start: t.start, dur: t.execSec, mi: t.mi });
-    });
-    return map;
-  }
-  var lerp = (a, b, t) => a + (b - a) * t;
-  function drawSchedule(ctx, rect, tasks, vms, to, opts = {}) {
-    const { from = null, alpha = 1, tMax, makespan = null, ideal = null, appear = null, queue = null, laneColor = COLORS.blue, labelW = 168, fontScale = 1 } = opts;
-    const laneGap = 14;
-    const laneH = (rect.h - laneGap * (vms.length - 1)) / vms.length;
-    const trackX = rect.x + labelW;
-    const trackW = rect.w - labelW;
-    const secToPx = trackW / tMax;
-    vms.forEach((vm, j) => {
-      const y = rect.y + j * (laneH + laneGap);
-      ctx.fillStyle = hexToRgba(laneColor, 0.1);
-      ctx.beginPath();
-      ctx.roundRect(trackX, y, trackW, laneH, 14);
-      ctx.fill();
-      ctx.strokeStyle = hexToRgba(laneColor, 0.35);
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = hexToRgba(laneColor, 0.22);
-      ctx.beginPath();
-      ctx.roundRect(rect.x, y, labelW - 12, laneH, 14);
-      ctx.fill();
-      drawText(ctx, vm.name, rect.x + 16, y + laneH * 0.36, { size: Math.min(30, laneH * 0.34) * fontScale, color: COLORS.ink });
-      drawText(ctx, `${vm.mips} MIPS`, rect.x + 16, y + laneH * 0.72, { size: Math.min(22, laneH * 0.26) * fontScale, weight: 600, color: COLORS.muted, mono: true });
-    });
-    if (ideal != null) {
-      const ix = trackX + ideal * secToPx;
-      ctx.save();
-      ctx.strokeStyle = hexToRgba(COLORS.lime, 0.85);
-      ctx.lineWidth = 3;
-      ctx.setLineDash([3, 8]);
-      ctx.beginPath();
-      ctx.moveTo(ix, rect.y - 14);
-      ctx.lineTo(ix, rect.y + rect.h + 6);
-      ctx.stroke();
-      ctx.restore();
-    }
-    tasks.forEach((task, idx) => {
-      const target = to.get(task.id);
-      if (!target) return;
-      const prev = from && from.get(task.id) ? from.get(task.id) : target;
-      const lane = lerp(prev.lane, target.lane, alpha);
-      const start = lerp(prev.start, target.start, alpha);
-      const dur = lerp(prev.dur, target.dur, alpha);
-      let bx = trackX + start * secToPx;
-      let by = rect.y + lane * (laneH + laneGap) + 6;
-      let bw = Math.max(4, dur * secToPx - 3);
-      const bh = laneH - 12;
-      let a = 1;
-      if (appear) {
-        const p = appear(idx);
-        if (p <= 0) return;
-        if (p < 1 && queue) {
-          const e = 1 - Math.pow(1 - p, 3);
-          bx = lerp(queue.x + idx % 4 * 8, bx, e);
-          by = lerp(queue.y + idx % 5 * 6, by, e) - Math.sin(Math.PI * e) * 120;
-        }
-        a = Math.min(1, p * 3);
-      }
-      const color = taskColor(task.id);
-      ctx.save();
-      ctx.globalAlpha *= a;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 9);
-      ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh * 0.4, 9);
-      ctx.fill();
-      if (bw > 38 * fontScale) {
-        drawText(ctx, task.name, bx + bw / 2, by + bh / 2, {
-          size: Math.min(24, bh * 0.46) * fontScale,
-          color: "#050d26",
-          align: "center",
-          weight: 800
-        });
-      }
-      ctx.restore();
-    });
-    if (makespan != null) {
-      const mx = trackX + makespan * secToPx;
-      ctx.save();
-      ctx.strokeStyle = COLORS.gold;
-      ctx.lineWidth = 4;
-      ctx.setLineDash([12, 8]);
-      ctx.beginPath();
-      ctx.moveTo(mx, rect.y - 14);
-      ctx.lineTo(mx, rect.y + rect.h + 6);
-      ctx.stroke();
-      ctx.restore();
-    }
-  }
-
   // src/ui/aoeSandbox.js
-  var _AoESandboxModal_instances, initGameData_fn, stopSim_fn, bind_fn2, deploySwarm_fn, startGrandDuel_fn, updateSelectionHighlight_fn, updateGold_fn, updateDisplay_fn, render_fn2;
+  var MAP_WIDTH = 1800;
+  var MAP_HEIGHT = 1050;
+  var RESOURCE_CAPACITY = 10;
+  var _AoESandboxModal_instances, createWorld_fn, newUnit_fn, render_fn2, bind_fn2, bindCanvas_fn, resizeCanvas_fn, zoomCamera_fn, centerCamera_fn, clampCamera_fn, spawnUnit_fn, startLoop_fn, stopLoop_fn, updateWorld_fn, updateVillager_fn, selectResourceTarget_fn, updateKnight_fn, updateEnemy_fn, steerKnight_fn, emitSonar_fn, updateSonar_fn, isVisible_fn, moveUnit_fn, spawnEnemyWave_fn, addFloat_fn, setStatus_fn, updateHud_fn, drawWorld_fn, drawTerrain_fn, drawStructures_fn, drawResources_fn, drawUnits_fn, drawFloatingText_fn, drawFog_fn, drawSonar_fn, drawHealthBar_fn, drawLabel_fn;
   var AoESandboxModal = class {
-    constructor() {
+    constructor(onHome = null) {
       __privateAdd(this, _AoESandboxModal_instances);
       this.modal = null;
-      this.seed = 2026;
-      this.tasks = [];
-      this.vms = [];
-      this.userAssignment = [];
-      this.gold = 150;
-      this.selectedCaravan = null;
-      this.simRunning = false;
-      this.timerId = null;
-      this.optimizer = null;
-      this.duelActive = false;
-      this.duelData = { faScore: 0, baScore: 0, iter: 0, maxIter: 30 };
+      this.onHome = onHome;
+      this.frameId = 0;
+      this.lastFrameTime = 0;
+      this.fogCanvas = document.createElement("canvas");
+      this.fogCanvas.width = MAP_WIDTH;
+      this.fogCanvas.height = MAP_HEIGHT;
+      this.fogContext = this.fogCanvas.getContext("2d");
+      this.world = __privateMethod(this, _AoESandboxModal_instances, createWorld_fn).call(this);
     }
     mount(root) {
       if (this.modal) return;
-      const el = document.createElement("div");
-      el.id = "aoe-sandbox-modal";
-      el.className = "aoe-modal-backdrop hidden";
-      el.setAttribute("role", "dialog");
-      el.setAttribute("aria-label", "Game RTS Penjadwalan Cloud");
-      root.appendChild(el);
-      this.modal = el;
-      __privateMethod(this, _AoESandboxModal_instances, initGameData_fn).call(this);
+      const modal = document.createElement("div");
+      modal.id = "aoe-sandbox-modal";
+      modal.className = "aoe-modal-backdrop hidden";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-label", "Arena RTS Firefly");
+      root.appendChild(modal);
+      this.modal = modal;
       __privateMethod(this, _AoESandboxModal_instances, render_fn2).call(this);
       __privateMethod(this, _AoESandboxModal_instances, bind_fn2).call(this);
     }
     open() {
       if (!this.modal) return;
-      __privateMethod(this, _AoESandboxModal_instances, initGameData_fn).call(this);
       this.modal.classList.remove("hidden");
-      sound.playHorn();
       __privateMethod(this, _AoESandboxModal_instances, render_fn2).call(this);
+      __privateMethod(this, _AoESandboxModal_instances, startLoop_fn).call(this);
+      sound.playHorn();
     }
     close() {
       if (!this.modal) return;
-      __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
+      __privateMethod(this, _AoESandboxModal_instances, stopLoop_fn).call(this);
       this.modal.classList.add("hidden");
       sound.playClick();
     }
@@ -1980,370 +913,921 @@
     }
   };
   _AoESandboxModal_instances = new WeakSet();
-  initGameData_fn = function() {
-    __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
-    this.tasks = generateTasks(16, this.seed);
-    this.vms = makeVMs(4);
-    const rr = roundRobin(this.tasks, this.vms);
-    this.userAssignment = rr.assignment.slice();
-    this.ideal = idealMakespan(this.tasks, this.vms);
-    this.rrRes = rr;
-    this.mmRes = minMin(this.tasks, this.vms);
-    this.selectedCaravan = null;
-    this.duelActive = false;
-  };
-  stopSim_fn = function() {
-    if (this.timerId) {
-      clearInterval(this.timerId);
-      this.timerId = null;
+  createWorld_fn = function() {
+    const world = {
+      width: MAP_WIDTH,
+      height: MAP_HEIGHT,
+      gold: 300,
+      wood: 200,
+      time: 0,
+      paused: false,
+      gameOver: "",
+      nextWave: 18,
+      nextId: 1,
+      wave: 0,
+      knownEnemyId: null,
+      knownEnemyUntil: 0,
+      camera: { x: 0, y: 0, zoom: 1, initialized: false },
+      townCenter: { x: 390, y: 520, hp: 1e3, maxHp: 1e3 },
+      villagers: [],
+      knights: [],
+      enemies: [],
+      nodes: [],
+      floatingText: [],
+      sonarPulses: [],
+      sonarReveals: []
+    };
+    [
+      ["wood", 150, 200, 150],
+      ["wood", 220, 800, 130],
+      ["wood", 650, 200, 170],
+      ["wood", 835, 800, 160],
+      ["wood", 1200, 170, 140],
+      ["wood", 1330, 850, 150],
+      ["gold", 170, 505, 180],
+      ["gold", 590, 445, 160],
+      ["gold", 1050, 500, 220],
+      ["gold", 1240, 690, 180]
+    ].forEach(([type, x, y, amount], index) => {
+      world.nodes.push({
+        id: index + 1,
+        type,
+        x,
+        y,
+        amount,
+        maxAmount: amount
+      });
+    });
+    for (let i = 0; i < 4; i++) {
+      world.villagers.push(__privateMethod(this, _AoESandboxModal_instances, newUnit_fn).call(this, world, "villager", world.townCenter.x + 70 + i * 19, world.townCenter.y + 46));
     }
-    this.simRunning = false;
-  };
-  bind_fn2 = function() {
-    this.modal.addEventListener("click", (e) => {
-      if (e.target.closest("#aoe-sandbox-close") || e.target === this.modal) {
-        this.close();
-        return;
-      }
-      const cartBtn = e.target.closest("[data-caravan-idx]");
-      if (cartBtn && !this.simRunning) {
-        sound.playClick();
-        const idx = Number(cartBtn.dataset.caravanIdx);
-        this.selectedCaravan = this.selectedCaravan === idx ? null : idx;
-        __privateMethod(this, _AoESandboxModal_instances, updateSelectionHighlight_fn).call(this);
-        return;
-      }
-      const castleCard = e.target.closest("[data-castle-idx]");
-      if (castleCard && this.selectedCaravan !== null && !this.simRunning) {
-        const targetVm = Number(castleCard.dataset.castleIdx);
-        sound.playSword();
-        this.userAssignment[this.selectedCaravan] = targetVm;
-        this.selectedCaravan = null;
-        __privateMethod(this, _AoESandboxModal_instances, updateDisplay_fn).call(this);
-        return;
-      }
-      const upgradeBtn = e.target.closest("[data-upgrade-vm]");
-      if (upgradeBtn && !this.simRunning) {
-        const vmIdx = Number(upgradeBtn.dataset.upgradeVm);
-        if (this.gold >= 40) {
-          this.gold -= 40;
-          this.vms[vmIdx].mips += 25;
-          sound.playSword();
-          this.ideal = idealMakespan(this.tasks, this.vms);
-          this.rrRes = roundRobin(this.tasks, this.vms);
-          this.mmRes = minMin(this.tasks, this.vms);
-          __privateMethod(this, _AoESandboxModal_instances, updateDisplay_fn).call(this);
-        } else {
-          sound.playClick();
-          alert("Emas kerajaan tidak mencukupi untuk menempa benteng! Butuh 40 Emas.");
-        }
-        return;
-      }
-      const actBtn = e.target.closest("[data-game-act]");
-      if (actBtn) {
-        const act = actBtn.dataset.gameAct;
-        if (act === "reset-rr") {
-          sound.playClick();
-          __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
-          this.userAssignment = this.rrRes.assignment.slice();
-          __privateMethod(this, _AoESandboxModal_instances, updateDisplay_fn).call(this);
-        } else if (act === "apply-mm") {
-          sound.playClick();
-          __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
-          this.userAssignment = this.mmRes.assignment.slice();
-          __privateMethod(this, _AoESandboxModal_instances, updateDisplay_fn).call(this);
-        } else if (act === "deploy-fa") {
-          __privateMethod(this, _AoESandboxModal_instances, deploySwarm_fn).call(this, "fa");
-        } else if (act === "deploy-ba") {
-          __privateMethod(this, _AoESandboxModal_instances, deploySwarm_fn).call(this, "ba");
-        } else if (act === "start-duel") {
-          __privateMethod(this, _AoESandboxModal_instances, startGrandDuel_fn).call(this);
-        } else if (act === "new-quest") {
-          sound.playClick();
-          this.seed = (this.seed * 37 + 19) % 99999;
-          this.gold += 50;
-          __privateMethod(this, _AoESandboxModal_instances, initGameData_fn).call(this);
-          __privateMethod(this, _AoESandboxModal_instances, render_fn2).call(this);
-        }
-      }
-    });
-  };
-  deploySwarm_fn = function(algoType) {
-    __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
-    sound.playSword();
-    this.simRunning = true;
-    const isFa = algoType === "fa";
-    const opt = new CloudScheduleOptimizer({
-      n: this.tasks.length,
-      m: this.vms.length,
-      tasks: this.tasks,
-      vms: this.vms,
-      populationSize: 24,
-      maxIterations: 30,
-      seed: this.seed + 7
-    });
-    let iter = 0;
-    const banner = this.modal.querySelector("#game-status-banner");
-    if (banner) {
-      banner.textContent = `Batalion ${isFa ? "Kunang-Kunang" : "Kelelawar"} sedang menata formasi kafilah...`;
+    for (let i = 0; i < 2; i++) {
+      world.knights.push(__privateMethod(this, _AoESandboxModal_instances, newUnit_fn).call(this, world, "knight", world.townCenter.x + 44, world.townCenter.y - 60 + i * 34));
     }
-    this.timerId = setInterval(() => {
-      iter++;
-      const st = opt.step();
-      if (isFa) {
-        sound.playChime();
-        this.userAssignment = st.evalFa.assignment.slice();
-      } else {
-        sound.playPing();
-        this.userAssignment = st.evalBa.assignment.slice();
-      }
-      __privateMethod(this, _AoESandboxModal_instances, updateDisplay_fn).call(this);
-      if (iter >= 30 || st.done) {
-        __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
-        sound.playVictory();
-        this.gold += 60;
-        if (banner) {
-          const finalMs = isFa ? st.evalFa.makespan : st.evalBa.makespan;
-          banner.textContent = `Formasi Selesai! ${isFa ? "Firefly" : "Bat"} mencapai Makespan ${finalMs.toFixed(1)}s (+60 Emas diperoleh!)`;
-        }
-        __privateMethod(this, _AoESandboxModal_instances, updateGold_fn).call(this);
-      }
-    }, 90);
+    return world;
   };
-  startGrandDuel_fn = function() {
-    __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
-    sound.playSword();
-    this.simRunning = true;
-    this.duelActive = true;
-    const opt = new CloudScheduleOptimizer({
-      n: this.tasks.length,
-      m: this.vms.length,
-      tasks: this.tasks,
-      vms: this.vms,
-      populationSize: 20,
-      maxIterations: 30,
-      seed: this.seed + 11
-    });
-    const duelBox = this.modal.querySelector("#aoe-duel-board");
-    if (duelBox) duelBox.classList.remove("hidden");
-    let iter = 0;
-    this.timerId = setInterval(() => {
-      iter++;
-      const st = opt.step();
-      const faScore = st.evalFa.makespan;
-      const baScore = st.evalBa.makespan;
-      const faScoreEl = this.modal.querySelector("#duel-score-fa");
-      const baScoreEl = this.modal.querySelector("#duel-score-ba");
-      const iterEl = this.modal.querySelector("#duel-live-iter");
-      if (faScoreEl) faScoreEl.textContent = `${faScore.toFixed(1)}s`;
-      if (baScoreEl) baScoreEl.textContent = `${baScore.toFixed(1)}s`;
-      if (iterEl) iterEl.textContent = `Iterasi ${iter} / 30`;
-      if (iter >= 30 || st.done) {
-        __privateMethod(this, _AoESandboxModal_instances, stopSim_fn).call(this);
-        sound.playVictory();
-        this.gold += 100;
-        let verdict2 = "HASIL SERI!";
-        if (faScore < baScore) {
-          verdict2 = `\u{1F3C6} KEMENANGAN ORDO KUNANG-KUNANG! (${faScore.toFixed(1)}s vs ${baScore.toFixed(1)}s)`;
-          this.userAssignment = st.evalFa.assignment.slice();
-        } else if (baScore < faScore) {
-          verdict2 = `\u{1F3C6} KEMENANGAN LEGIUN KELELAWAR! (${baScore.toFixed(1)}s vs ${faScore.toFixed(1)}s)`;
-          this.userAssignment = st.evalBa.assignment.slice();
-        } else {
-          verdict2 = `\u{1F91D} KEDUA ALGORITMA IMBANG DI ${faScore.toFixed(1)}s!`;
-        }
-        const winShout = this.modal.querySelector("#duel-winner-shout");
-        if (winShout) winShout.textContent = verdict2;
-        __privateMethod(this, _AoESandboxModal_instances, updateDisplay_fn).call(this);
-        __privateMethod(this, _AoESandboxModal_instances, updateGold_fn).call(this);
-      }
-    }, 85);
-  };
-  updateSelectionHighlight_fn = function() {
-    this.modal.querySelectorAll("[data-caravan-idx]").forEach((el) => {
-      const idx = Number(el.dataset.caravanIdx);
-      el.classList.toggle("selected-caravan", idx === this.selectedCaravan);
-    });
-    const hint = this.modal.querySelector("#game-status-banner");
-    if (hint) {
-      if (this.selectedCaravan !== null) {
-        const task = this.tasks[this.selectedCaravan];
-        hint.innerHTML = `\u2694\uFE0F <b>Kafilah ${task.name} (${task.mi} MI) terpilih!</b> Klik salah satu benteng di atas untuk memindahkannya.`;
-      } else {
-        hint.textContent = "Pilih salah satu kafilah di bawah lalu klik benteng tujuan untuk memindahkannya!";
-      }
-    }
-  };
-  updateGold_fn = function() {
-    const goldEl = this.modal.querySelector("#game-gold-display");
-    if (goldEl) goldEl.textContent = `${this.gold} \u{1FA99}`;
-  };
-  updateDisplay_fn = function() {
-    const evalRes = evaluateAssignment(this.userAssignment, this.tasks, this.vms);
-    const msEl = this.modal.querySelector("#game-makespan-display");
-    const idealEl = this.modal.querySelector("#game-ideal-display");
-    if (msEl) msEl.textContent = `${evalRes.makespan.toFixed(1)}s`;
-    if (idealEl) idealEl.textContent = `${this.ideal.toFixed(1)}s`;
-    this.vms.forEach((vm, j) => {
-      const loadSec = evalRes.vmLoads[j];
-      const pctOfMax = Math.min(100, Math.round(loadSec / evalRes.makespan * 100));
-      const mipsEl = this.modal.querySelector(`#castle-mips-${j}`);
-      const loadEl = this.modal.querySelector(`#castle-load-${j}`);
-      const barEl = this.modal.querySelector(`#castle-bar-${j}`);
-      const listEl = this.modal.querySelector(`#castle-caravans-${j}`);
-      if (mipsEl) mipsEl.textContent = `${vm.mips} MIPS`;
-      if (loadEl) loadEl.textContent = `${loadSec.toFixed(1)}s (${pctOfMax}%)`;
-      if (barEl) {
-        barEl.style.width = `${pctOfMax}%`;
-        barEl.className = "castle-hp-bar " + (loadSec === evalRes.makespan ? "bottleneck" : pctOfMax > 75 ? "balanced" : "underload");
-      }
-      if (listEl) {
-        listEl.innerHTML = "";
-        this.tasks.forEach((t, i) => {
-          if (this.userAssignment[i] === j) {
-            const isSel = this.selectedCaravan === i;
-            const cart = document.createElement("button");
-            cart.type = "button";
-            cart.className = `rts-cart ${isSel ? "selected-caravan" : ""}`;
-            cart.dataset.caravanIdx = String(i);
-            cart.style.borderColor = taskColor(t.id);
-            cart.innerHTML = `
-              <span class="cart-tag">${t.name}</span>
-              <b class="cart-mi">${t.mi}</b>
-            `;
-            cart.title = `Kafilah ${t.name}: ${t.mi} MI. Klik untuk memilih!`;
-            listEl.appendChild(cart);
-          }
-        });
-      }
-    });
-    __privateMethod(this, _AoESandboxModal_instances, updateGold_fn).call(this);
+  newUnit_fn = function(world, type, x, y) {
+    return {
+      id: world.nextId++,
+      type,
+      x,
+      y,
+      hp: type === "enemy" ? 3 : 10,
+      maxHp: type === "enemy" ? 3 : 10,
+      cargo: { gold: 0, wood: 0 },
+      targetId: null,
+      action: "idle",
+      cooldown: 0,
+      wander: 0,
+      vx: 0,
+      vy: 0,
+      frequency: 0.2 + Math.random() * 0.8,
+      loudness: 0.9,
+      pulseRate: 0.15,
+      sonarCooldown: 0.4 + Math.random() * 1.8,
+      patrolTarget: null,
+      patrolTime: 0
+    };
   };
   render_fn2 = function() {
     this.modal.innerHTML = `
-      <div class="aoe-sandbox-window aoe-rts-game-window">
-        <!-- HEADER KERAJAAN RTS -->
-        <header class="aoe-tech-header">
+      <div class="aoe-sandbox-window aoe-rts-game-window rts-firefly-window">
+        <header class="aoe-tech-header rts-firefly-header">
           <div class="aoe-tech-title-wrap">
-            <span class="aoe-crest">\u{1F3F0}</span>
+            <span class="aoe-crest" aria-hidden="true">\u{1F3F0}</span>
             <div>
-              <h2>AGE OF CLOUD \xB7 PERTAHANAN KERAJAAN KOMPUTASI</h2>
-              <p id="game-status-banner">Kendalikan kafilah tugas, perkuat benteng di pandai besi, atau kerahkan pasukan swarm!</p>
+              <h2>AGE OF CLOUD \xB7 FIRE FLY RTS</h2>
+              <p id="rts-status" aria-live="polite">Kumpulkan sumber daya, latih pasukan, dan hancurkan kamp lawan.</p>
             </div>
           </div>
-          <div class="rts-header-right">
-            <span class="rts-gold-pill">Emas Kerajaan: <b id="game-gold-display">${this.gold} \u{1FA99}</b></span>
-            <button type="button" id="aoe-sandbox-close" class="aoe-stone-btn close-btn" title="Kembali">&times;</button>
+          <div class="rts-firefly-header-actions">
+            <div class="rts-resource-pill"><span>\u{1FA99}</span><b id="rts-gold">300</b></div>
+            <div class="rts-resource-pill"><span>\u{1FAB5}</span><b id="rts-wood">200</b></div>
+            <button type="button" class="aoe-stone-btn rts-home-btn" data-rts-action="home">\u{1F3E0} Home</button>
+            <button type="button" id="aoe-sandbox-close" class="aoe-stone-btn close-btn" title="Tutup arena" aria-label="Tutup arena">&times;</button>
           </div>
         </header>
 
-        <!-- STATUS BAR RTS -->
-        <section class="aoe-sandbox-stats-bar">
-          <div class="aoe-res-item">
-            <span class="res-icon">\u23F1\uFE0F</span>
-            <div>
-              <small>MAKESPAN JADWALMU</small>
-              <b id="game-makespan-display" class="gold-text">--</b>
-            </div>
-          </div>
-          <div class="aoe-res-item">
-            <span class="res-icon">\u{1F3AF}</span>
-            <div>
-              <small>BATAS BAWAH TEORITIS</small>
-              <b id="game-ideal-display">--</b>
-            </div>
-          </div>
-          <div class="aoe-res-item">
-            <span class="res-icon">\u{1F4DC}</span>
-            <div>
-              <small>STANDAR ROUND-ROBIN</small>
-              <b>${this.rrRes.makespan.toFixed(1)}s</b>
-            </div>
-          </div>
-          <div class="aoe-res-item">
-            <span class="res-icon">\u26A1</span>
-            <div>
-              <small>STANDAR MIN-MIN</small>
-              <b>${this.mmRes.makespan.toFixed(1)}s</b>
-            </div>
-          </div>
+        <section class="rts-firefly-stats" aria-label="Status pasukan">
+          <div><small>PENDUDUK</small><b id="rts-population">4</b></div>
+          <div><small>KNIGHT</small><b id="rts-knight-count">2</b></div>
+          <div><small>VISI PASUKAN</small><b id="rts-wave">KABUT</b></div>
+          <div><small>GEMA TERDETEKSI</small><b id="rts-enemy-hp">0</b></div>
         </section>
 
-        <!-- DUEL BOARD MODAL AREA (JIKA AKTIF) -->
-        <div id="aoe-duel-board" class="aoe-duel-arena-wrap ${this.duelActive ? "" : "hidden"}">
-          <div class="duel-contender fa-box">
-            <span class="duel-faction-title">\u2728 ORDO KUNANG-KUNANG</span>
-            <div class="duel-score-pill"><b id="duel-score-fa">--</b></div>
-            <small>Dipandu cahaya tetangga \u03B2(r)</small>
-          </div>
-          <div class="duel-center-vs">
-            <span class="vs-text">VS</span>
-            <b id="duel-live-iter" class="duel-iter-badge">Iterasi 0 / 30</b>
-          </div>
-          <div class="duel-contender ba-box">
-            <span class="duel-faction-title">\u{1F987} LEGIUN KELELAWAR</span>
-            <div class="duel-score-pill"><b id="duel-score-ba">--</b></div>
-            <small>Dipandu sonar pemimpin x*</small>
-          </div>
-          <div id="duel-winner-shout" class="duel-banner-announcement"></div>
-        </div>
+        <main class="rts-firefly-layout">
+          <section class="rts-firefly-map-panel" aria-label="Peta perang RTS">
+            <div class="rts-firefly-map-heading">
+              <b>MEDAN KERAJAAN</b>
+              <span>Kabut perang \xB7 seret untuk jelajah \xB7 scroll untuk zoom</span>
+              <div>
+                <button type="button" data-rts-action="zoom-out" aria-label="Perkecil peta">\u2212</button>
+                <button type="button" data-rts-action="zoom-in" aria-label="Perbesar peta">+</button>
+                <button type="button" data-rts-action="center" aria-label="Pusatkan peta">\u2316</button>
+              </div>
+            </div>
+            <canvas id="rts-game-canvas" aria-label="Peta RTS dengan fog of war, ekonomi Firefly, dan knight Bat dengan sonar"></canvas>
+            <div class="rts-firefly-map-legend">
+              <span><i class="legend-villager"></i> Villager</span>
+              <span><i class="legend-knight"></i> Knight</span>
+              <span><i class="legend-gold"></i> Tambang emas</span>
+              <span><i class="legend-wood"></i> Hutan</span>
+              <span><i class="legend-enemy"></i> Musuh</span>
+            </div>
+          </section>
 
-        <!-- MEDAN TEMPUR 4 BENTENG KERAJAAN (4 CASTLES RTS) -->
-        <div class="aoe-castles-grid">
-          ${this.vms.map((vm, j) => {
-      const castleNames = [
-        "Benteng Fajar (Alpha Keep)",
-        "Benteng Besi (Iron Keep)",
-        "Kastil Batu (Stone Citadel)",
-        "Benteng Surya (Bastion of Sun)"
-      ];
-      const castleIcons = ["\u{1F3F0}", "\u{1F3EF}", "\u{1F3DB}\uFE0F", "\u{1F6E1}\uFE0F"];
-      return `
-              <div class="aoe-castle-card" data-castle-idx="${j}">
-                <div class="castle-card-header">
-                  <span class="castle-avatar">${castleIcons[j]}</span>
-                  <div class="castle-meta">
-                    <b>${castleNames[j]}</b>
-                    <small id="castle-mips-${j}">${vm.mips} MIPS</small>
-                  </div>
-                  <button type="button" class="aoe-upgrade-btn" data-upgrade-vm="${j}" title="Tempa di Pandai Besi: +25 MIPS (Biaya: 40 Emas)">
-                    \u2692\uFE0F +25 MIPS <small>(40\u{1FA99})</small>
-                  </button>
-                </div>
+          <aside class="rts-firefly-command">
+            <section class="rts-firefly-resource-card">
+              <header><span>\u{1F4E6} PERSEDIAAN</span><small>biaya unit</small></header>
+              <div class="rts-firefly-resource-row"><span>\u{1FA99} Emas</span><b id="rts-gold-side">300</b></div>
+              <div class="rts-firefly-resource-row"><span>\u{1FAB5} Kayu</span><b id="rts-wood-side">200</b></div>
+            </section>
 
-                <div class="castle-hp-wrap">
-                  <div class="castle-hp-label">
-                    <span>Beban Waktu:</span>
-                    <b id="castle-load-${j}">0s</b>
-                  </div>
-                  <div class="castle-hp-track">
-                    <div id="castle-bar-${j}" class="castle-hp-bar"></div>
-                  </div>
-                </div>
+            <section class="rts-firefly-recruit">
+              <header>\u{1F3F0} PUSAT KOTA</header>
+              <p>Latih pasukan dari Town Center.</p>
+              <button type="button" data-rts-action="spawn-villager">
+                <span class="recruit-avatar villager-avatar">\u25CF</span>
+                <span><b>Spawn Villager</b><small>Firefly forager</small></span>
+                <strong>50 \u{1FA99}</strong>
+              </button>
+              <button type="button" data-rts-action="spawn-knight">
+                <span class="recruit-avatar knight-avatar">\u25A0</span>
+                <span><b>Spawn Knight</b><small>Firefly hunter</small></span>
+                <strong>100 \u{1FA99} \xB7 50 \u{1FAB5}</strong>
+              </button>
+            </section>
 
-                <div class="castle-caravans-area" id="castle-caravans-${j}">
-                  <!-- Kafilah-kafilah tugas yang dialokasikan di sini -->
-                </div>
-              </div>`;
-    }).join("")}
-        </div>
+            <section class="rts-firefly-ai-card">
+              <header>\u2728 EKONOMI \xB7 FIREFLY ALGORITHM</header>
+              <b>Tarikan cahaya untuk mencari resource</b>
+              <p>Villager memilih node terang yang terlihat. Node kaya dan dekat menarik lebih kuat; node habis kehilangan daya tarik.</p>
+              <code>score = intensity \xD7 e<sup>\u2212\u03B3r\xB2</sup></code>
+              <small>Villager kembali ke Town Center saat membawa 10 resource.</small>
+            </section>
 
-        <!-- RTS FOOTER COMMAND PALETTE -->
-        <footer class="aoe-sandbox-footer">
-          <div class="aoe-cmd-group">
-            <button type="button" class="aoe-stone-btn" data-game-act="reset-rr" title="Atur ulang beban ke Round-Robin">\u{1F504} Round-Robin</button>
-            <button type="button" class="aoe-stone-btn" data-game-act="apply-mm" title="Terapkan alokasi cerdas Min-Min">\u{1F3AF} Terapkan Min-Min</button>
-            <button type="button" class="aoe-stone-btn" data-game-act="new-quest" title="Acak beban tugas baru dan dapatkan emas">\u{1F4DC} Misi Baru (+50\u{1FA99})</button>
-          </div>
-          <div class="aoe-cmd-group primary-group">
-            <button type="button" class="aoe-stone-btn gold-btn" data-game-act="deploy-fa">\u2728 Kerahkan Firefly</button>
-            <button type="button" class="aoe-stone-btn purple-btn" data-game-act="deploy-ba">\u{1F987} Kerahkan Bat</button>
-            <button type="button" class="aoe-stone-btn clash-btn" data-game-act="start-duel">\u2694\uFE0F PERANG AKBAR (DUEL FA VS BA)</button>
+            <section class="rts-firefly-ai-card rts-bat-ai-card">
+              <header>\u{1F987} MILITER \xB7 BAT ALGORITHM</header>
+              <b id="rts-bat-phase">Eksplorasi \xB7 loudness tinggi</b>
+              <p>Sonar mengungkap musuh dalam kabut. Knight mengeksplorasi saat belum ada gema, lalu berkumpul dan menyerbu target yang ditemukan.</p>
+              <code id="rts-bat-formula">A tinggi \xB7 pulse lambat \xB7 radius sonar besar</code>
+              <small>Target musuh ditemukan: <b id="rts-known-target">belum ada</b></small>
+            </section>
+
+            <section class="rts-firefly-enemy-card">
+              <header>\u{1F6A9} MUSUH DARI KABUT</header>
+              <b id="rts-enemy-status">Musuh belum terdeteksi</b>
+              <div class="rts-enemy-health"><i id="rts-enemy-health-bar"></i></div>
+              <small id="rts-enemy-hint">Musuh tersembunyi di balik kabut perang.</small>
+            </section>
+          </aside>
+        </main>
+
+        <footer class="rts-firefly-footer">
+          <p>Firefly mencari resource yang terlihat. Bat memakai sonar untuk mengungkap musuh dan mengumpulkan knight pada target.</p>
+          <div>
+            <button type="button" class="aoe-stone-btn" data-rts-action="pause">\u23F8 Jeda</button>
+            <button type="button" class="aoe-stone-btn" data-rts-action="reset">\u21BB Mulai Ulang</button>
           </div>
         </footer>
       </div>
     `;
-    __privateMethod(this, _AoESandboxModal_instances, updateDisplay_fn).call(this);
+    this.canvas = this.modal.querySelector("#rts-game-canvas");
+    this.ctx = this.canvas?.getContext("2d");
+    __privateMethod(this, _AoESandboxModal_instances, bindCanvas_fn).call(this);
+    __privateMethod(this, _AoESandboxModal_instances, resizeCanvas_fn).call(this);
+    const pauseButton = this.modal.querySelector('[data-rts-action="pause"]');
+    if (pauseButton) pauseButton.textContent = this.world.paused ? "\u25B6 Lanjutkan" : "\u23F8 Jeda";
+    __privateMethod(this, _AoESandboxModal_instances, updateHud_fn).call(this);
+  };
+  bind_fn2 = function() {
+    this.modal.addEventListener("click", (event) => {
+      if (event.target.closest("#aoe-sandbox-close") || event.target === this.modal) {
+        this.close();
+        return;
+      }
+      const action = event.target.closest("[data-rts-action]")?.dataset.rtsAction;
+      if (!action) {
+        if (event.target.closest('[data-game-act="home"]')) {
+          this.close();
+          this.onHome?.();
+        }
+        return;
+      }
+      if (action === "home") {
+        this.close();
+        this.onHome?.();
+      } else if (action === "spawn-villager") {
+        __privateMethod(this, _AoESandboxModal_instances, spawnUnit_fn).call(this, "villager");
+      } else if (action === "spawn-knight") {
+        __privateMethod(this, _AoESandboxModal_instances, spawnUnit_fn).call(this, "knight");
+      } else if (action === "pause") {
+        this.world.paused = !this.world.paused;
+        const button = this.modal.querySelector('[data-rts-action="pause"]');
+        if (button) button.textContent = this.world.paused ? "\u25B6 Lanjutkan" : "\u23F8 Jeda";
+        __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, this.world.paused ? "Simulasi dijeda." : "Simulasi dilanjutkan.");
+      } else if (action === "reset") {
+        this.world = __privateMethod(this, _AoESandboxModal_instances, createWorld_fn).call(this);
+        __privateMethod(this, _AoESandboxModal_instances, updateHud_fn).call(this);
+        __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Kerajaan baru siap. Kumpulkan sumber daya dan lindungi Town Center.");
+        sound.playClick();
+      } else if (action === "zoom-in" || action === "zoom-out") {
+        __privateMethod(this, _AoESandboxModal_instances, zoomCamera_fn).call(this, action === "zoom-in" ? 1.15 : 1 / 1.15);
+      } else if (action === "center") {
+        __privateMethod(this, _AoESandboxModal_instances, centerCamera_fn).call(this);
+      }
+    });
+  };
+  bindCanvas_fn = function() {
+    if (!this.canvas) return;
+    this.canvas.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      this.canvas.setPointerCapture(event.pointerId);
+      this.drag = {
+        x: event.clientX,
+        y: event.clientY,
+        cameraX: this.world.camera.x,
+        cameraY: this.world.camera.y
+      };
+      this.canvas.classList.add("is-panning");
+    });
+    this.canvas.addEventListener("pointermove", (event) => {
+      if (!this.drag) return;
+      const bounds = this.canvas.getBoundingClientRect();
+      const scale = this.world.camera.zoom;
+      this.world.camera.x = this.drag.cameraX - (event.clientX - this.drag.x) / scale;
+      this.world.camera.y = this.drag.cameraY - (event.clientY - this.drag.y) / scale;
+      __privateMethod(this, _AoESandboxModal_instances, clampCamera_fn).call(this, bounds.width, bounds.height);
+    });
+    const finishDrag = () => {
+      this.drag = null;
+      this.canvas.classList.remove("is-panning");
+    };
+    this.canvas.addEventListener("pointerup", finishDrag);
+    this.canvas.addEventListener("pointercancel", finishDrag);
+    this.canvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const bounds = this.canvas.getBoundingClientRect();
+      const anchor = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+      __privateMethod(this, _AoESandboxModal_instances, zoomCamera_fn).call(this, event.deltaY < 0 ? 1.12 : 1 / 1.12, anchor);
+    }, { passive: false });
+  };
+  resizeCanvas_fn = function() {
+    if (!this.canvas || !this.ctx) return;
+    const bounds = this.canvas.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.round(bounds.width * dpr);
+    const height2 = Math.round(bounds.height * dpr);
+    if (this.canvas.width !== width || this.canvas.height !== height2) {
+      this.canvas.width = width;
+      this.canvas.height = height2;
+    }
+    if (!this.world.camera.initialized) {
+      this.world.camera.initialized = true;
+      __privateMethod(this, _AoESandboxModal_instances, centerCamera_fn).call(this);
+    } else {
+      __privateMethod(this, _AoESandboxModal_instances, clampCamera_fn).call(this, bounds.width, bounds.height);
+    }
+  };
+  zoomCamera_fn = function(factor, anchor) {
+    const bounds = this.canvas?.getBoundingClientRect();
+    if (!bounds) return;
+    const camera = this.world.camera;
+    const point = anchor || { x: bounds.width / 2, y: bounds.height / 2 };
+    const mapX = camera.x + point.x / camera.zoom;
+    const mapY = camera.y + point.y / camera.zoom;
+    camera.zoom = Math.max(0.62, Math.min(1.9, camera.zoom * factor));
+    camera.x = mapX - point.x / camera.zoom;
+    camera.y = mapY - point.y / camera.zoom;
+    __privateMethod(this, _AoESandboxModal_instances, clampCamera_fn).call(this, bounds.width, bounds.height);
+  };
+  centerCamera_fn = function() {
+    const bounds = this.canvas?.getBoundingClientRect();
+    if (!bounds) return;
+    this.world.camera.x = this.world.townCenter.x - bounds.width / this.world.camera.zoom * 0.42;
+    this.world.camera.y = this.world.townCenter.y - bounds.height / this.world.camera.zoom / 2;
+    __privateMethod(this, _AoESandboxModal_instances, clampCamera_fn).call(this, bounds.width, bounds.height);
+  };
+  clampCamera_fn = function(viewWidth, viewHeight) {
+    const camera = this.world.camera;
+    camera.x = Math.max(0, Math.min(MAP_WIDTH - viewWidth / camera.zoom, camera.x));
+    camera.y = Math.max(0, Math.min(MAP_HEIGHT - viewHeight / camera.zoom, camera.y));
+  };
+  spawnUnit_fn = function(type) {
+    const world = this.world;
+    if (type === "villager") {
+      if (world.gold < 50) return __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Emas tidak cukup. Villager membutuhkan 50 emas.");
+      if (world.villagers.length + world.knights.length >= 60) return __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Batas populasi 60 unit telah tercapai.");
+      world.gold -= 50;
+    } else {
+      if (world.gold < 100 || world.wood < 50) return __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Knight membutuhkan 100 emas dan 50 kayu.");
+      if (world.villagers.length + world.knights.length >= 60) return __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Batas populasi 60 unit telah tercapai.");
+      world.gold -= 100;
+      world.wood -= 50;
+    }
+    const count = world.villagers.length + world.knights.length;
+    const angle = count * 2.399963229728653;
+    const radius = 74 + count % 3 * 12;
+    const unit = __privateMethod(this, _AoESandboxModal_instances, newUnit_fn).call(this, world, type, world.townCenter.x + Math.cos(angle) * radius, world.townCenter.y + Math.sin(angle) * radius);
+    world[type === "villager" ? "villagers" : "knights"].push(unit);
+    __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, type === "villager" ? "Villager bergabung dan mulai mencari sumber daya." : "Knight dilatih dan mulai berburu target musuh.");
+    sound.playSword();
+    __privateMethod(this, _AoESandboxModal_instances, updateHud_fn).call(this);
+  };
+  startLoop_fn = function() {
+    __privateMethod(this, _AoESandboxModal_instances, stopLoop_fn).call(this);
+    this.lastFrameTime = 0;
+    const frame = (timestamp) => {
+      const elapsed = this.lastFrameTime ? Math.min((timestamp - this.lastFrameTime) / 1e3, 0.05) : 0;
+      this.lastFrameTime = timestamp;
+      __privateMethod(this, _AoESandboxModal_instances, resizeCanvas_fn).call(this);
+      if (!this.world.paused) __privateMethod(this, _AoESandboxModal_instances, updateWorld_fn).call(this, elapsed);
+      __privateMethod(this, _AoESandboxModal_instances, drawWorld_fn).call(this, timestamp);
+      this.frameId = requestAnimationFrame(frame);
+    };
+    this.frameId = requestAnimationFrame(frame);
+  };
+  stopLoop_fn = function() {
+    if (this.frameId) cancelAnimationFrame(this.frameId);
+    this.frameId = 0;
+    this.lastFrameTime = 0;
+  };
+  updateWorld_fn = function(dt) {
+    const world = this.world;
+    world.time += dt;
+    if (world.time >= world.nextWave) {
+      __privateMethod(this, _AoESandboxModal_instances, spawnEnemyWave_fn).call(this);
+      world.nextWave = world.time + 34 + Math.random() * 12;
+    }
+    const crew = [...world.villagers, ...world.knights];
+    for (const villager of world.villagers) __privateMethod(this, _AoESandboxModal_instances, updateVillager_fn).call(this, villager, dt, crew);
+    for (const knight of world.knights) __privateMethod(this, _AoESandboxModal_instances, updateKnight_fn).call(this, knight, dt, crew);
+    __privateMethod(this, _AoESandboxModal_instances, updateSonar_fn).call(this, dt);
+    for (const enemy of world.enemies) __privateMethod(this, _AoESandboxModal_instances, updateEnemy_fn).call(this, enemy, dt, crew);
+    world.knights = world.knights.filter((knight) => knight.hp > 0);
+    world.enemies = world.enemies.filter((enemy) => enemy.hp > 0);
+    if (world.knownEnemyId && !world.enemies.some((enemy) => enemy.id === world.knownEnemyId)) {
+      world.knownEnemyId = null;
+      world.knownEnemyUntil = 0;
+    }
+    if (world.time > world.knownEnemyUntil) {
+      world.knownEnemyId = null;
+    }
+    world.floatingText = world.floatingText.filter((text) => {
+      text.life -= dt;
+      text.y -= 24 * dt;
+      return text.life > 0;
+    });
+    __privateMethod(this, _AoESandboxModal_instances, updateHud_fn).call(this);
+  };
+  updateVillager_fn = function(unit, dt, crew) {
+    const world = this.world;
+    const carried = unit.cargo.gold + unit.cargo.wood;
+    if (carried >= RESOURCE_CAPACITY) {
+      unit.action = "return";
+      unit.targetId = "town-center";
+      const reached = __privateMethod(this, _AoESandboxModal_instances, moveUnit_fn).call(this, unit, world.townCenter, dt, 90, crew);
+      if (reached) {
+        world.gold += unit.cargo.gold;
+        world.wood += unit.cargo.wood;
+        __privateMethod(this, _AoESandboxModal_instances, addFloat_fn).call(this, world.townCenter.x, world.townCenter.y - 58, `+${unit.cargo.gold} gold \xB7 +${unit.cargo.wood} wood`, "#fff1a8");
+        unit.cargo = { gold: 0, wood: 0 };
+        unit.targetId = null;
+      }
+      return;
+    }
+    const node = __privateMethod(this, _AoESandboxModal_instances, selectResourceTarget_fn).call(this, unit);
+    if (!node) {
+      unit.action = "idle";
+      return;
+    }
+    unit.targetId = node.id;
+    unit.action = "forage";
+    if (!__privateMethod(this, _AoESandboxModal_instances, moveUnit_fn).call(this, unit, node, dt, 82, crew, 25)) return;
+    unit.cooldown -= dt;
+    if (unit.cooldown > 0) return;
+    unit.cooldown = 0.58;
+    const amount = Math.min(1, node.amount, RESOURCE_CAPACITY - carried);
+    node.amount -= amount;
+    unit.cargo[node.type] += amount;
+    const floatX = node.x + (unit.id % 5 - 2) * 27;
+    __privateMethod(this, _AoESandboxModal_instances, addFloat_fn).call(this, floatX, node.y - 26, `+${amount} ${node.type === "gold" ? "gold" : "wood"}`, node.type === "gold" ? "#ffe27a" : "#c9f49c");
+    if (node.amount <= 0) {
+      node.amount = 0;
+      unit.targetId = null;
+    }
+  };
+  selectResourceTarget_fn = function(unit) {
+    const world = this.world;
+    const candidates = world.nodes.filter((node) => node.amount > 0 && __privateMethod(this, _AoESandboxModal_instances, isVisible_fn).call(this, node.x, node.y));
+    let best = null;
+    let bestScore = -1;
+    for (const node of candidates) {
+      const distance = Math.hypot(node.x - unit.x, node.y - unit.y);
+      const intensity = node.amount / node.maxAmount;
+      const beta = Math.exp(-2.2 * (distance / 520) ** 2);
+      const crowd = world.villagers.filter(
+        (other) => other !== unit && other.targetId === node.id && Math.hypot(other.x - node.x, other.y - node.y) < 115
+      ).length;
+      const score = intensity * beta / (1 + crowd * 0.32);
+      if (score > bestScore) {
+        bestScore = score;
+        best = node;
+      }
+    }
+    return best;
+  };
+  updateKnight_fn = function(unit, dt, crew) {
+    const world = this.world;
+    const target = world.knownEnemyId && world.time <= world.knownEnemyUntil ? world.enemies.find((enemy) => enemy.id === world.knownEnemyId) : null;
+    unit.sonarCooldown -= dt;
+    if (unit.sonarCooldown <= 0) __privateMethod(this, _AoESandboxModal_instances, emitSonar_fn).call(this, unit);
+    if (!target) {
+      unit.action = "explore";
+      unit.targetId = null;
+      unit.loudness = Math.min(1, unit.loudness + dt * 0.18);
+      unit.pulseRate = Math.max(0.12, unit.pulseRate - dt * 0.16);
+      unit.patrolTime -= dt;
+      if (!unit.patrolTarget || unit.patrolTime <= 0 || Math.hypot(unit.patrolTarget.x - unit.x, unit.patrolTarget.y - unit.y) < 38) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 180 + Math.random() * 260;
+        unit.patrolTarget = {
+          x: Math.max(60, Math.min(MAP_WIDTH - 60, world.townCenter.x + Math.cos(angle) * radius)),
+          y: Math.max(60, Math.min(MAP_HEIGHT - 60, world.townCenter.y + Math.sin(angle) * radius))
+        };
+        unit.patrolTime = 4 + Math.random() * 5;
+      }
+      __privateMethod(this, _AoESandboxModal_instances, steerKnight_fn).call(this, unit, unit.patrolTarget, dt, 88, crew);
+      return;
+    }
+    unit.action = "attack";
+    unit.targetId = target.id;
+    unit.loudness = Math.max(0.22, unit.loudness - dt * 0.22);
+    unit.pulseRate = Math.min(0.92, unit.pulseRate + dt * 0.36);
+    const distance = Math.hypot(target.x - unit.x, target.y - unit.y);
+    if (distance > 34) {
+      const flank = (unit.id % 2 ? 1 : -1) * 22;
+      __privateMethod(this, _AoESandboxModal_instances, steerKnight_fn).call(this, unit, { x: target.x + flank, y: target.y + flank * 0.5 }, dt, 116 + unit.frequency * 24, crew);
+      return;
+    }
+    unit.cooldown -= dt;
+    if (unit.cooldown > 0) return;
+    const attackRate = 0.95 - unit.pulseRate * 0.55;
+    unit.cooldown = Math.max(0.28, attackRate);
+    target.hp = Math.max(0, target.hp - 1);
+    target.revealedUntil = world.time + 8;
+    __privateMethod(this, _AoESandboxModal_instances, addFloat_fn).call(this, target.x + (unit.id % 3 - 1) * 15, target.y - 22, "-1 HP", "#ff8b79");
+    __privateMethod(this, _AoESandboxModal_instances, addFloat_fn).call(this, unit.x, unit.y - 24, `A ${unit.loudness.toFixed(1)} \xB7 r ${unit.pulseRate.toFixed(1)}`, "#e5f4ff");
+    if (target.hp <= 0) {
+      world.gold += target.intensity > 1 ? 35 : 12;
+      __privateMethod(this, _AoESandboxModal_instances, addFloat_fn).call(this, target.x, target.y - 42, `+${target.intensity > 1 ? 35 : 12} Gold`, "#ffe27a");
+      world.knownEnemyId = null;
+      world.knownEnemyUntil = 0;
+      __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Target musuh dikalahkan. Knight menyebar kembali dan memulai eksplorasi.");
+    }
+  };
+  updateEnemy_fn = function(enemy, dt, crew) {
+    const friendlyUnits = [...this.world.knights, ...this.world.villagers].filter((unit) => unit.hp > 0);
+    const target = friendlyUnits.length ? friendlyUnits.reduce(
+      (nearest, unit) => Math.hypot(unit.x - enemy.x, unit.y - enemy.y) < Math.hypot(nearest.x - enemy.x, nearest.y - enemy.y) ? unit : nearest
+    ) : { ...this.world.townCenter, id: "town-center", type: "structure" };
+    const distance = Math.hypot(target.x - enemy.x, target.y - enemy.y);
+    if (distance > 30) {
+      __privateMethod(this, _AoESandboxModal_instances, moveUnit_fn).call(this, enemy, target, dt, 62, [...crew, ...this.world.enemies], 28);
+      return;
+    }
+    enemy.cooldown -= dt;
+    if (enemy.cooldown > 0) return;
+    enemy.cooldown = 1.4;
+    target.hp = Math.max(0, target.hp - 1);
+    __privateMethod(this, _AoESandboxModal_instances, addFloat_fn).call(this, target.x + (enemy.id % 3 - 1) * 12, target.y - 20, "-1 HP", "#ff9589");
+    if (target.hp === 0 && target.type === "knight") {
+      this.world.knights = this.world.knights.filter((knight) => knight !== target);
+      __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Seorang knight gugur. Rekrut knight baru untuk menjaga perbatasan.");
+    } else if (target.hp === 0 && target.type === "villager") {
+      this.world.villagers = this.world.villagers.filter((villager) => villager !== target);
+      __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Seorang villager gugur dalam serangan minion.");
+    } else if (target.hp === 0 && target.type === "structure") {
+      __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, "Town Center hancur. Bangun kembali kekuatan sebelum gelombang berikutnya.");
+    }
+  };
+  steerKnight_fn = function(unit, target, dt, speed, crew) {
+    const dx = target.x - unit.x;
+    const dy = target.y - unit.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    let desiredX = dx / distance;
+    let desiredY = dy / distance;
+    for (const other of crew) {
+      if (other === unit || other.hp <= 0 || other.type !== "knight") continue;
+      const awayX = unit.x - other.x;
+      const awayY = unit.y - other.y;
+      const separation = Math.hypot(awayX, awayY);
+      if (separation > 0 && separation < 38) {
+        const push = (38 - separation) / 38;
+        desiredX += awayX / separation * push * 0.9;
+        desiredY += awayY / separation * push * 0.9;
+      }
+    }
+    const magnitude = Math.hypot(desiredX, desiredY) || 1;
+    desiredX /= magnitude;
+    desiredY /= magnitude;
+    unit.frequency = Math.max(0.05, Math.min(1, unit.frequency + (Math.random() - 0.5) * 0.08));
+    const inertia = 0.45 + unit.loudness * 0.32;
+    unit.vx = unit.vx * inertia + desiredX * (1 - inertia) * unit.frequency;
+    unit.vy = unit.vy * inertia + desiredY * (1 - inertia) * unit.frequency;
+    const velocity = Math.hypot(unit.vx, unit.vy) || 1;
+    unit.x = Math.max(26, Math.min(MAP_WIDTH - 26, unit.x + unit.vx / velocity * speed * dt));
+    unit.y = Math.max(26, Math.min(MAP_HEIGHT - 26, unit.y + unit.vy / velocity * speed * dt));
+  };
+  emitSonar_fn = function(knight) {
+    const radius = 115 + knight.loudness * 190;
+    const interval = 0.45 + (1 - knight.pulseRate) * 2.45;
+    knight.sonarCooldown = interval;
+    this.world.sonarPulses.push({
+      x: knight.x,
+      y: knight.y,
+      radius: 3,
+      maxRadius: radius,
+      speed: radius / 1.25,
+      alpha: 0.72,
+      sourceId: knight.id,
+      detected: /* @__PURE__ */ new Set()
+    });
+  };
+  updateSonar_fn = function(dt) {
+    const world = this.world;
+    world.sonarPulses = world.sonarPulses.filter((pulse) => {
+      const previousRadius = pulse.radius;
+      pulse.radius = Math.min(pulse.maxRadius, pulse.radius + pulse.speed * dt);
+      pulse.alpha = 0.72 * (1 - pulse.radius / pulse.maxRadius);
+      for (const enemy of world.enemies) {
+        if (pulse.detected.has(enemy.id)) continue;
+        const distance = Math.hypot(enemy.x - pulse.x, enemy.y - pulse.y);
+        if (distance >= previousRadius - 16 && distance <= pulse.radius + 16) {
+          pulse.detected.add(enemy.id);
+          enemy.revealedUntil = world.time + 8;
+          world.sonarReveals.push({ x: enemy.x, y: enemy.y, radius: 155, expiresAt: world.time + 5 });
+          const captain = enemy.intensity > 1;
+          const currentTarget = world.enemies.find((candidate) => candidate.id === world.knownEnemyId);
+          const sonarSource = world.knights.find((knight) => knight.id === pulse.sourceId);
+          const targetIsBetter = !currentTarget || world.time > world.knownEnemyUntil || enemy.intensity > currentTarget.intensity || enemy.intensity === currentTarget.intensity && sonarSource && Math.hypot(enemy.x - sonarSource.x, enemy.y - sonarSource.y) < Math.hypot(currentTarget.x - sonarSource.x, currentTarget.y - sonarSource.y);
+          if (targetIsBetter) {
+            world.knownEnemyId = enemy.id;
+            world.knownEnemyUntil = world.time + 8;
+          }
+          __privateMethod(this, _AoESandboxModal_instances, addFloat_fn).call(this, enemy.x, enemy.y - 25, captain ? "CAPTAIN PING!" : "ECHO PING!", "#edf8ff");
+          __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, `${captain ? "Captain" : "Musuh"} ditemukan sonar Bat. Pasukan knight berkumpul dan menyerbu!`);
+          sound.playPing();
+        }
+      }
+      return pulse.radius < pulse.maxRadius;
+    });
+    world.sonarReveals = world.sonarReveals.filter((reveal) => reveal.expiresAt > world.time);
+  };
+  isVisible_fn = function(x, y) {
+    const world = this.world;
+    if (Math.hypot(x - world.townCenter.x, y - world.townCenter.y) < 235) return true;
+    return [...world.villagers, ...world.knights].some((unit) => {
+      const radius = unit.type === "knight" ? 142 : 112;
+      return unit.hp > 0 && Math.hypot(x - unit.x, y - unit.y) < radius;
+    });
+  };
+  moveUnit_fn = function(unit, target, dt, speed, crew, arriveDistance = 18) {
+    const dx = target.x - unit.x;
+    const dy = target.y - unit.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= arriveDistance) return true;
+    let vx = dx / distance;
+    let vy = dy / distance;
+    for (const other of crew) {
+      if (other === unit || other.hp <= 0) continue;
+      const awayX = unit.x - other.x;
+      const awayY = unit.y - other.y;
+      const separation = Math.hypot(awayX, awayY);
+      if (separation > 0 && separation < 24) {
+        const push = (24 - separation) / 24;
+        vx += awayX / separation * push * 0.8;
+        vy += awayY / separation * push * 0.8;
+      }
+    }
+    const magnitude = Math.hypot(vx, vy) || 1;
+    const variation = 1 + Math.sin(this.world.time * 2 + unit.id) * 0.035;
+    unit.x = Math.max(26, Math.min(MAP_WIDTH - 26, unit.x + vx / magnitude * speed * dt * variation));
+    unit.y = Math.max(26, Math.min(MAP_HEIGHT - 26, unit.y + vy / magnitude * speed * dt * variation));
+    return false;
+  };
+  spawnEnemyWave_fn = function() {
+    const world = this.world;
+    const wave = ++world.wave;
+    const count = Math.min(6, 2 + Math.floor(wave / 2));
+    const campEdge = Math.random() < 0.5;
+    for (let i = 0; i < count; i++) {
+      let x = 0;
+      let y = 0;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        x = campEdge ? Math.random() < 0.5 ? 920 + Math.random() * 760 : 75 + Math.random() * 680 : 75 + Math.random() * (MAP_WIDTH - 150);
+        y = 75 + Math.random() * (MAP_HEIGHT - 150);
+        if (!__privateMethod(this, _AoESandboxModal_instances, isVisible_fn).call(this, x, y)) break;
+      }
+      const enemy = __privateMethod(this, _AoESandboxModal_instances, newUnit_fn).call(this, world, "enemy", Math.max(70, Math.min(MAP_WIDTH - 70, x)), Math.max(70, Math.min(MAP_HEIGHT - 70, y)));
+      enemy.maxHp = i === 0 ? 5 + wave : 3;
+      enemy.hp = enemy.maxHp;
+      enemy.intensity = i === 0 ? 2.2 : 1;
+      world.enemies.push(enemy);
+    }
+    __privateMethod(this, _AoESandboxModal_instances, setStatus_fn).call(this, `Gelombang ${wave} muncul dari kabut. Knight, pancarkan sonar untuk menemukan mereka!`);
+    sound.playPing();
+  };
+  addFloat_fn = function(x, y, text, color) {
+    this.world.floatingText.push({ x, y, text, color, life: 1.1 });
+  };
+  setStatus_fn = function(text) {
+    const status = this.modal?.querySelector("#rts-status");
+    if (status) status.textContent = text;
+  };
+  updateHud_fn = function() {
+    if (!this.modal) return;
+    const world = this.world;
+    const gold = Math.floor(world.gold);
+    const wood = Math.floor(world.wood);
+    const population = world.villagers.length + world.knights.length;
+    const wave = world.wave;
+    const knownEnemy = world.enemies.find((enemy) => enemy.id === world.knownEnemyId);
+    const detectedCount = world.enemies.filter(
+      (enemy) => enemy.revealedUntil > world.time || __privateMethod(this, _AoESandboxModal_instances, isVisible_fn).call(this, enemy.x, enemy.y)
+    ).length;
+    const hpPercent = knownEnemy ? Math.ceil(knownEnemy.hp / knownEnemy.maxHp * 100) : 0;
+    const set = (id, value) => {
+      const el = this.modal.querySelector(`#${id}`);
+      if (el) el.textContent = String(value);
+    };
+    set("rts-gold", gold);
+    set("rts-gold-side", gold);
+    set("rts-wood", wood);
+    set("rts-wood-side", wood);
+    set("rts-population", population);
+    set("rts-knight-count", world.knights.length);
+    set("rts-wave", wave || "KABUT");
+    set("rts-enemy-hp", detectedCount);
+    set("rts-enemy-status", knownEnemy ? knownEnemy.intensity > 1 ? "Captain terdeteksi" : "Musuh terdeteksi" : "Musuh belum terdeteksi");
+    set("rts-enemy-hint", world.knownEnemyId ? `${detectedCount} musuh terlihat \xB7 sonar Bat mengunci gema` : "Musuh tersembunyi di balik kabut perang.");
+    set("rts-known-target", world.knownEnemyId ? "gema terdeteksi" : "belum ada");
+    const attacking = world.knights.some((knight) => knight.action === "attack");
+    set("rts-bat-phase", attacking ? "Serbu \xB7 loudness turun" : "Eksplorasi \xB7 loudness tinggi");
+    set("rts-bat-formula", attacking ? "A rendah \xB7 pulse cepat \xB7 radius sonar kecil" : "A tinggi \xB7 pulse lambat \xB7 radius sonar besar");
+    const health = this.modal.querySelector("#rts-enemy-health-bar");
+    if (health) health.style.width = `${hpPercent}%`;
+    this.modal.querySelectorAll('[data-rts-action="spawn-villager"], [data-rts-action="spawn-knight"]').forEach((button) => {
+      const isVillager = button.dataset.rtsAction === "spawn-villager";
+      button.disabled = population >= 60 || (isVillager ? gold < 50 : gold < 100 || wood < 50);
+    });
+  };
+  drawWorld_fn = function(timestamp) {
+    if (!this.ctx || !this.canvas) return;
+    const ctx = this.ctx;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const camera = this.world.camera;
+    const zoom = camera.zoom;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, this.canvas.width / dpr, this.canvas.height / dpr);
+    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, -camera.x * dpr * zoom, -camera.y * dpr * zoom);
+    __privateMethod(this, _AoESandboxModal_instances, drawTerrain_fn).call(this, ctx);
+    __privateMethod(this, _AoESandboxModal_instances, drawStructures_fn).call(this, ctx);
+    __privateMethod(this, _AoESandboxModal_instances, drawResources_fn).call(this, ctx);
+    __privateMethod(this, _AoESandboxModal_instances, drawUnits_fn).call(this, ctx, timestamp);
+    __privateMethod(this, _AoESandboxModal_instances, drawFloatingText_fn).call(this, ctx);
+    __privateMethod(this, _AoESandboxModal_instances, drawFog_fn).call(this, ctx);
+    __privateMethod(this, _AoESandboxModal_instances, drawSonar_fn).call(this, ctx);
+  };
+  drawTerrain_fn = function(ctx) {
+    ctx.fillStyle = "#244f27";
+    ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    for (let y = 0; y < MAP_HEIGHT; y += 52) {
+      for (let x = 0; x < MAP_WIDTH; x += 52) {
+        const shade = (x / 52 + y / 52) % 3;
+        ctx.fillStyle = shade === 0 ? "rgba(126, 158, 70, .12)" : "rgba(8, 39, 20, .09)";
+        ctx.fillRect(x, y, 52, 52);
+        ctx.fillStyle = "rgba(206, 210, 135, .12)";
+        ctx.fillRect(x + 10 + shade * 5, y + 14, 3, 3);
+      }
+    }
+    ctx.strokeStyle = "rgba(226, 205, 143, .38)";
+    ctx.lineWidth = 34;
+    ctx.beginPath();
+    ctx.moveTo(0, 532);
+    ctx.bezierCurveTo(470, 450, 1060, 600, MAP_WIDTH, 485);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(74, 54, 31, .75)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(239, 226, 172, .65)";
+    ctx.font = "bold 15px sans-serif";
+    ctx.fillText("PADANG RUMPUT KERAJAAN", 700, 80);
+  };
+  drawStructures_fn = function(ctx) {
+    const town = this.world.townCenter;
+    ctx.fillStyle = "rgba(15, 22, 12, .38)";
+    ctx.fillRect(town.x - 66, town.y - 40, 138, 108);
+    ctx.fillStyle = "#72502b";
+    ctx.fillRect(town.x - 70, town.y - 48, 132, 102);
+    ctx.fillStyle = "#b28a48";
+    ctx.fillRect(town.x - 62, town.y - 41, 116, 87);
+    ctx.fillStyle = "#5b3b22";
+    ctx.fillRect(town.x - 36, town.y - 15, 66, 60);
+    ctx.fillStyle = "#281d15";
+    ctx.fillRect(town.x - 12, town.y + 12, 24, 33);
+    ctx.fillStyle = "#633d25";
+    ctx.fillRect(town.x - 84, town.y - 65, 20, 42);
+    ctx.fillRect(town.x + 49, town.y - 65, 20, 42);
+    ctx.fillStyle = "#f2d371";
+    ctx.fillRect(town.x - 82, town.y - 70, 16, 8);
+    ctx.fillRect(town.x + 51, town.y - 70, 16, 8);
+    __privateMethod(this, _AoESandboxModal_instances, drawHealthBar_fn).call(this, ctx, town.x - 50, town.y + 70, 100, town.hp / town.maxHp, "#84db67");
+    __privateMethod(this, _AoESandboxModal_instances, drawLabel_fn).call(this, ctx, "TOWN CENTER", town.x, town.y - 83, "#fff0bd");
+  };
+  drawResources_fn = function(ctx) {
+    for (const node of this.world.nodes) {
+      const intensity = node.amount / node.maxAmount;
+      if (node.type === "gold") {
+        if (!node.amount) continue;
+        const size = 21 + intensity * 12;
+        ctx.fillStyle = `rgba(248, 191, 55, ${0.38 + intensity * 0.3})`;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = Math.PI / 3 * i - Math.PI / 6;
+          const x = node.x + Math.cos(angle) * size;
+          const y = node.y + Math.sin(angle) * size;
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#f7cb4e";
+        ctx.fill();
+        ctx.strokeStyle = "#ffe99a";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        __privateMethod(this, _AoESandboxModal_instances, drawLabel_fn).call(this, ctx, `GOLD \xB7 ${Math.ceil(node.amount)}`, node.x, node.y + size + 22, "#fff0aa");
+      } else {
+        const alpha = Math.max(0.22, intensity);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#563a22";
+        ctx.fillRect(node.x - 5, node.y + 10, 10, 34);
+        [[-22, 0, 23], [0, -13, 27], [24, 2, 20], [-1, 18, 19]].forEach(([dx, dy, radius]) => {
+          ctx.fillStyle = "#2c692f";
+          ctx.beginPath();
+          ctx.arc(node.x + dx, node.y + dy, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#5a9a3e";
+          ctx.beginPath();
+          ctx.arc(node.x + dx - 5, node.y + dy - 7, radius * 0.55, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        if (node.amount > 0) __privateMethod(this, _AoESandboxModal_instances, drawLabel_fn).call(this, ctx, `WOOD \xB7 ${Math.ceil(node.amount)}`, node.x, node.y + 54, "#d7efbe");
+      }
+    }
+  };
+  drawUnits_fn = function(ctx, timestamp) {
+    const { villagers, knights, enemies } = this.world;
+    const time = timestamp * 3e-3;
+    for (const unit of villagers) {
+      if (unit.hp <= 0) continue;
+      if (unit.targetId) {
+        const target = this.world.nodes.find((node) => node.id === unit.targetId);
+        if (target) {
+          ctx.strokeStyle = "rgba(131, 224, 255, .18)";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 8]);
+          ctx.beginPath();
+          ctx.moveTo(unit.x, unit.y);
+          ctx.lineTo(target.x, target.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+      const bob = Math.sin(time + unit.id) * 2;
+      ctx.fillStyle = "rgba(4, 17, 26, .38)";
+      ctx.beginPath();
+      ctx.ellipse(unit.x, unit.y + 11, 12, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#34a9ef";
+      ctx.beginPath();
+      ctx.arc(unit.x, unit.y + bob, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#bdeeff";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      if (unit.cargo.gold + unit.cargo.wood > 0) {
+        ctx.fillStyle = unit.cargo.gold ? "#ffda52" : "#83c85b";
+        ctx.fillRect(unit.x + 9, unit.y - 14 + bob, 7, 7);
+      }
+    }
+    for (const unit of knights) {
+      if (unit.hp <= 0) continue;
+      ctx.save();
+      ctx.translate(unit.x, unit.y);
+      ctx.rotate(Math.sin(time * 0.6 + unit.id) * 0.04);
+      ctx.fillStyle = "rgba(4, 17, 26, .38)";
+      ctx.fillRect(-13, 4, 28, 22);
+      ctx.fillStyle = "#c4d2d7";
+      ctx.fillRect(-12, -12, 24, 24);
+      ctx.fillStyle = "#7f9298";
+      ctx.fillRect(-7, -7, 14, 14);
+      ctx.fillStyle = "#e6f0ed";
+      ctx.fillRect(-9, -11, 7, 4);
+      ctx.fillStyle = "#f5d274";
+      ctx.fillRect(9, -16, 4, 21);
+      ctx.restore();
+      if (unit.hp < unit.maxHp) __privateMethod(this, _AoESandboxModal_instances, drawHealthBar_fn).call(this, ctx, unit.x - 13, unit.y + 19, 26, unit.hp / unit.maxHp, "#83d566");
+    }
+    for (const enemy of enemies) {
+      if (enemy.revealedUntil <= this.world.time && !__privateMethod(this, _AoESandboxModal_instances, isVisible_fn).call(this, enemy.x, enemy.y)) continue;
+      ctx.fillStyle = "#bd4439";
+      ctx.fillRect(enemy.x - 11, enemy.y - 11, 22, 22);
+      ctx.strokeStyle = "#ffb29c";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(enemy.x - 11, enemy.y - 11, 22, 22);
+      __privateMethod(this, _AoESandboxModal_instances, drawHealthBar_fn).call(this, ctx, enemy.x - 13, enemy.y + 15, 26, enemy.hp / enemy.maxHp, "#ed6856");
+    }
+  };
+  drawFloatingText_fn = function(ctx) {
+    for (const text of this.world.floatingText) {
+      ctx.globalAlpha = Math.min(1, text.life * 1.5);
+      ctx.fillStyle = text.color;
+      ctx.font = "bold 17px sans-serif";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "#102014";
+      ctx.shadowBlur = 4;
+      ctx.fillText(text.text, text.x, text.y);
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
+  };
+  drawFog_fn = function(ctx) {
+    const world = this.world;
+    const fog = this.fogContext;
+    if (!fog) return;
+    fog.save();
+    fog.setTransform(1, 0, 0, 1, 0, 0);
+    fog.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    fog.globalCompositeOperation = "source-over";
+    fog.fillStyle = "rgba(0, 0, 0, 0.965)";
+    fog.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+    fog.globalCompositeOperation = "destination-out";
+    const reveal = (x, y, radius) => {
+      const gradient = fog.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, "rgba(0,0,0,0.96)");
+      gradient.addColorStop(0.56, "rgba(0,0,0,0.82)");
+      gradient.addColorStop(0.84, "rgba(0,0,0,0.42)");
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      fog.fillStyle = gradient;
+      fog.beginPath();
+      fog.arc(x, y, radius, 0, Math.PI * 2);
+      fog.fill();
+    };
+    reveal(world.townCenter.x, world.townCenter.y, 265);
+    for (const unit of [...world.villagers, ...world.knights]) {
+      if (unit.hp <= 0) continue;
+      reveal(unit.x, unit.y, unit.type === "knight" ? 170 : 145);
+    }
+    for (const scan of world.sonarReveals) reveal(scan.x, scan.y, scan.radius);
+    fog.restore();
+    ctx.drawImage(this.fogCanvas, 0, 0);
+  };
+  drawSonar_fn = function(ctx) {
+    ctx.save();
+    for (const pulse of this.world.sonarPulses) {
+      ctx.beginPath();
+      ctx.arc(pulse.x, pulse.y, pulse.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(235, 247, 255, ${Math.max(0.08, pulse.alpha)})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    for (const scan of this.world.sonarReveals) {
+      const remaining = Math.max(0, (scan.expiresAt - this.world.time) / 5);
+      ctx.beginPath();
+      ctx.arc(scan.x, scan.y, scan.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(197, 235, 255, ${remaining * 0.38})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+  drawHealthBar_fn = function(ctx, x, y, width, ratio, color) {
+    ctx.fillStyle = "rgba(10, 15, 10, .85)";
+    ctx.fillRect(x, y, width, 7);
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 1, y + 1, Math.max(0, (width - 2) * ratio), 5);
+  };
+  drawLabel_fn = function(ctx, text, x, y, color) {
+    ctx.font = "bold 13px sans-serif";
+    ctx.textAlign = "center";
+    const width = ctx.measureText(text).width + 16;
+    ctx.fillStyle = "rgba(15, 23, 16, .78)";
+    ctx.fillRect(x - width / 2, y - 15, width, 21);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
   };
 
   // src/ui/deepCodex.js
@@ -2351,7 +1835,7 @@
     masalah: {
       title: "Analisis Masalah Penjadwalan Komputasi Awan (Cloud Scheduling)",
       chapterNum: "1 & 2",
-      eraName: "Era I \xB7 Zaman Gelap",
+      eraName: "Act 1 \xB7 Masalah & Penjadwalan Cloud",
       icon: "\u{1F3F0}",
       sections: [
         {
@@ -2387,7 +1871,7 @@
     firefly: {
       title: "Bedah Ilmiah Algoritma Kunang-Kunang (Firefly Algorithm)",
       chapterNum: "3 & 4",
-      eraName: "Era II \xB7 Zaman Feodal",
+      eraName: "Act 2 \xB7 Algoritma Firefly",
       icon: "\u{1F4A1}",
       sections: [
         {
@@ -2429,7 +1913,7 @@
     bat: {
       title: "Bedah Ilmiah Algoritma Kelelawar (Bat Algorithm)",
       chapterNum: "5 & 6",
-      eraName: "Era III \xB7 Zaman Kastil",
+      eraName: "Act 3 \xB7 Algoritma Bat",
       icon: "\u{1F987}",
       sections: [
         {
@@ -2470,7 +1954,7 @@
     cloud: {
       title: "Model Penerapan & Perbandingan di Cloud Computing",
       chapterNum: "7, 8, 9 & 10",
-      eraName: "Era IV & V \xB7 Zaman Imperial & Keajaiban",
+      eraName: "Act 4 & 5 \xB7 Penerapan & Sintesis",
       icon: "\u2694\uFE0F",
       sections: [
         {
@@ -2998,11 +2482,11 @@
       return 0;
     }
   }
-  function lerp2(x, y, t) {
+  function lerp(x, y, t) {
     return (1 - t) * x + t * y;
   }
   function damp(x, y, lambda, dt) {
-    return lerp2(x, y, 1 - Math.exp(-lambda * dt));
+    return lerp(x, y, 1 - Math.exp(-lambda * dt));
   }
   function pingpong(x, length = 1) {
     return length - Math.abs(euclideanModulo(x, length * 2) - length);
@@ -3186,7 +2670,7 @@
      * @param {number} t - The interpolation factor in the closed interval `[0, 1]`.
      * @return {number} The interpolated value.
      */
-    lerp: lerp2,
+    lerp,
     /**
      * Smoothly interpolate a number from `x` to `y` in  a spring-like manner using a delta
      * time to maintain frame rate independent movement. For details, see
@@ -5730,17 +5214,17 @@
      * @return {Matrix3} A reference to this matrix.
      */
     transpose() {
-      let tmp;
+      let tmp3;
       const m = this.elements;
-      tmp = m[1];
+      tmp3 = m[1];
       m[1] = m[3];
-      m[3] = tmp;
-      tmp = m[2];
+      m[3] = tmp3;
+      tmp3 = m[2];
       m[2] = m[6];
-      m[6] = tmp;
-      tmp = m[5];
+      m[6] = tmp3;
+      tmp3 = m[5];
       m[5] = m[7];
-      m[7] = tmp;
+      m[7] = tmp3;
       return this;
     }
     /**
@@ -8214,25 +7698,25 @@
      */
     transpose() {
       const te = this.elements;
-      let tmp;
-      tmp = te[1];
+      let tmp3;
+      tmp3 = te[1];
       te[1] = te[4];
-      te[4] = tmp;
-      tmp = te[2];
+      te[4] = tmp3;
+      tmp3 = te[2];
       te[2] = te[8];
-      te[8] = tmp;
-      tmp = te[6];
+      te[8] = tmp3;
+      tmp3 = te[6];
       te[6] = te[9];
-      te[9] = tmp;
-      tmp = te[3];
+      te[9] = tmp3;
+      tmp3 = te[3];
       te[3] = te[12];
-      te[12] = tmp;
-      tmp = te[7];
+      te[12] = tmp3;
+      tmp3 = te[7];
       te[7] = te[13];
-      te[13] = tmp;
-      tmp = te[11];
+      te[13] = tmp3;
+      tmp3 = te[11];
       te[11] = te[14];
-      te[14] = tmp;
+      te[14] = tmp3;
       return this;
     }
     /**
@@ -9818,11 +9302,11 @@
       this.matrix.compose(this.position, this.quaternion, this.scale);
       const pivot = this.pivot;
       if (pivot !== null) {
-        const px = pivot.x, py = pivot.y, pz = pivot.z;
+        const px2 = pivot.x, py2 = pivot.y, pz2 = pivot.z;
         const te = this.matrix.elements;
-        te[12] += px - te[0] * px - te[4] * py - te[8] * pz;
-        te[13] += py - te[1] * px - te[5] * py - te[9] * pz;
-        te[14] += pz - te[2] * px - te[6] * py - te[10] * pz;
+        te[12] += px2 - te[0] * px2 - te[4] * py2 - te[8] * pz2;
+        te[13] += py2 - te[1] * px2 - te[5] * py2 - te[9] * pz2;
+        te[14] += pz2 - te[2] * px2 - te[6] * py2 - te[10] * pz2;
       }
       this.matrixWorldNeedsUpdate = true;
     }
@@ -11042,9 +10526,9 @@
     lerpHSL(color, alpha) {
       this.getHSL(_hslA);
       color.getHSL(_hslB);
-      const h = lerp2(_hslA.h, _hslB.h, alpha);
-      const s = lerp2(_hslA.s, _hslB.s, alpha);
-      const l = lerp2(_hslA.l, _hslB.l, alpha);
+      const h = lerp(_hslA.h, _hslB.h, alpha);
+      const s = lerp(_hslA.s, _hslB.s, alpha);
+      const l = lerp(_hslA.l, _hslB.l, alpha);
       this.setHSL(h, s, l);
       return this;
     }
@@ -13338,18 +12822,18 @@
           );
         }
       }
-      const tmp = new Vector3(), tmp2 = new Vector3();
+      const tmp3 = new Vector3(), tmp22 = new Vector3();
       const n = new Vector3(), n2 = new Vector3();
       function handleVertex(v) {
         n.fromBufferAttribute(normalAttribute, v);
         n2.copy(n);
         const t = tan1[v];
-        tmp.copy(t);
-        tmp.sub(n.multiplyScalar(n.dot(t))).normalize();
-        tmp2.crossVectors(n2, t);
-        const test = tmp2.dot(tan2[v]);
+        tmp3.copy(t);
+        tmp3.sub(n.multiplyScalar(n.dot(t))).normalize();
+        tmp22.crossVectors(n2, t);
+        const test = tmp22.dot(tan2[v]);
         const w = test < 0 ? -1 : 1;
-        tangentAttribute.setXYZW(v, tmp.x, tmp.y, tmp.z, w);
+        tangentAttribute.setXYZW(v, tmp3.x, tmp3.y, tmp3.z, w);
       }
       for (let i = 0, il = positionAttribute.count; i < il; ++i) {
         if (used[i]) handleVertex(i);
@@ -13618,6 +13102,529 @@
      */
     dispose() {
       this.dispatchEvent({ type: "dispose" });
+    }
+  };
+  var InterleavedBuffer = class {
+    /**
+     * Constructs a new interleaved buffer.
+     *
+     * @param {TypedArray} array - A typed array with a shared buffer storing attribute data.
+     * @param {number} stride - The number of typed-array elements per vertex.
+     */
+    constructor(array, stride) {
+      this.isInterleavedBuffer = true;
+      this.array = array;
+      this.stride = stride;
+      this.count = array !== void 0 ? array.length / stride : 0;
+      this.usage = StaticDrawUsage;
+      this.updateRanges = [];
+      this.version = 0;
+      this.uuid = generateUUID();
+    }
+    /**
+     * A callback function that is executed after the renderer has transferred the attribute array
+     * data to the GPU.
+     */
+    onUploadCallback() {
+    }
+    /**
+     * Flag to indicate that this attribute has changed and should be re-sent to
+     * the GPU. Set this to `true` when you modify the value of the array.
+     *
+     * @type {number}
+     * @default false
+     * @param {boolean} value
+     */
+    set needsUpdate(value) {
+      if (value === true) this.version++;
+    }
+    /**
+     * Sets the usage of this interleaved buffer.
+     *
+     * @param {(StaticDrawUsage|DynamicDrawUsage|StreamDrawUsage|StaticReadUsage|DynamicReadUsage|StreamReadUsage|StaticCopyUsage|DynamicCopyUsage|StreamCopyUsage)} value - The usage to set.
+     * @return {InterleavedBuffer} A reference to this interleaved buffer.
+     */
+    setUsage(value) {
+      this.usage = value;
+      return this;
+    }
+    /**
+     * Adds a range of data in the data array to be updated on the GPU.
+     *
+     * @param {number} start - Position at which to start update.
+     * @param {number} count - The number of components to update.
+     */
+    addUpdateRange(start, count) {
+      this.updateRanges.push({ start, count });
+    }
+    /**
+     * Clears the update ranges.
+     */
+    clearUpdateRanges() {
+      this.updateRanges.length = 0;
+    }
+    /**
+     * Copies the values of the given interleaved buffer to this instance.
+     *
+     * @param {InterleavedBuffer} source - The interleaved buffer to copy.
+     * @return {InterleavedBuffer} A reference to this instance.
+     */
+    copy(source) {
+      this.array = new source.array.constructor(source.array);
+      this.count = source.count;
+      this.stride = source.stride;
+      this.usage = source.usage;
+      return this;
+    }
+    /**
+     * Copies a vector from the given interleaved buffer to this one. The start
+     * and destination position in the attribute buffers are represented by the
+     * given indices.
+     *
+     * @param {number} index1 - The destination index into this interleaved buffer.
+     * @param {InterleavedBuffer} interleavedBuffer - The interleaved buffer to copy from.
+     * @param {number} index2 - The source index into the given interleaved buffer.
+     * @return {InterleavedBuffer} A reference to this instance.
+     */
+    copyAt(index1, interleavedBuffer, index2) {
+      index1 *= this.stride;
+      index2 *= interleavedBuffer.stride;
+      for (let i = 0, l = this.stride; i < l; i++) {
+        this.array[index1 + i] = interleavedBuffer.array[index2 + i];
+      }
+      return this;
+    }
+    /**
+     * Sets the given array data in the interleaved buffer.
+     *
+     * @param {(TypedArray|Array)} value - The array data to set.
+     * @param {number} [offset=0] - The offset in this interleaved buffer's array.
+     * @return {InterleavedBuffer} A reference to this instance.
+     */
+    set(value, offset = 0) {
+      this.array.set(value, offset);
+      return this;
+    }
+    /**
+     * Returns a new interleaved buffer with copied values from this instance.
+     *
+     * @param {Object} [data] - An object with shared array buffers that allows to retain shared structures.
+     * @return {InterleavedBuffer} A clone of this instance.
+     */
+    clone(data) {
+      if (data.arrayBuffers === void 0) {
+        data.arrayBuffers = {};
+      }
+      const key = getArrayKey(this.array);
+      if (data.arrayBuffers[key] === void 0) {
+        data.arrayBuffers[key] = this.array.slice(0).buffer;
+      }
+      const array = new this.array.constructor(data.arrayBuffers[key]);
+      const ib = new this.constructor(array, this.stride);
+      ib.setUsage(this.usage);
+      return ib;
+    }
+    /**
+     * Sets the given callback function that is executed after the Renderer has transferred
+     * the array data to the GPU. Can be used to perform clean-up operations after
+     * the upload when data are not needed anymore on the CPU side.
+     *
+     * @param {Function} callback - The `onUpload()` callback.
+     * @return {InterleavedBuffer} A reference to this instance.
+     */
+    onUpload(callback) {
+      this.onUploadCallback = callback;
+      return this;
+    }
+    /**
+     * Serializes the interleaved buffer into JSON.
+     *
+     * @param {Object} [data] - An optional value holding meta information about the serialization.
+     * @return {Object} A JSON object representing the serialized interleaved buffer.
+     */
+    toJSON(data) {
+      if (data.arrayBuffers === void 0) {
+        data.arrayBuffers = {};
+      }
+      const key = getArrayKey(this.array);
+      if (data.arrayBuffers[key] === void 0) {
+        data.arrayBuffers[key] = Array.from(new Uint32Array(this.array.slice(0).buffer));
+      }
+      const json = {
+        uuid: this.uuid,
+        buffer: key,
+        type: this.array.constructor.name,
+        stride: this.stride
+      };
+      json.usage = this.usage;
+      return json;
+    }
+  };
+  function getArrayKey(array) {
+    if (array.buffer._uuid === void 0) {
+      array.buffer._uuid = generateUUID();
+    }
+    if (array.byteOffset === 0 && array.byteLength === array.buffer.byteLength) return array.buffer._uuid;
+    return array.buffer._uuid + ":" + array.byteOffset + ":" + array.byteLength;
+  }
+  var _vector$8 = /* @__PURE__ */ new Vector3();
+  var InterleavedBufferAttribute = class _InterleavedBufferAttribute {
+    /**
+     * Constructs a new interleaved buffer attribute.
+     *
+     * @param {InterleavedBuffer} interleavedBuffer - The buffer holding the interleaved data.
+     * @param {number} itemSize - The item size.
+     * @param {number} offset - The attribute offset into the buffer.
+     * @param {boolean} [normalized=false] - Whether the data are normalized or not.
+     */
+    constructor(interleavedBuffer, itemSize, offset, normalized = false) {
+      this.isInterleavedBufferAttribute = true;
+      this.name = "";
+      this.data = interleavedBuffer;
+      this.itemSize = itemSize;
+      this.offset = offset;
+      this.normalized = normalized;
+      this._normalizationScale = interleavedBuffer !== void 0 ? getNormalizationScale(interleavedBuffer.array) : void 0;
+    }
+    /**
+     * The item count of this buffer attribute.
+     *
+     * @type {number}
+     * @readonly
+     */
+    get count() {
+      return this.data.count;
+    }
+    /**
+     * The array holding the interleaved buffer attribute data.
+     *
+     * @type {TypedArray}
+     */
+    get array() {
+      return this.data.array;
+    }
+    /**
+     * Flag to indicate that this attribute has changed and should be re-sent to
+     * the GPU. Set this to `true` when you modify the value of the array.
+     *
+     * @type {number}
+     * @default false
+     * @param {boolean} value
+     */
+    set needsUpdate(value) {
+      this.data.needsUpdate = value;
+    }
+    /**
+     * Applies the given 4x4 matrix to the given attribute. Only works with
+     * item size `3`.
+     *
+     * @param {Matrix4} m - The matrix to apply.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    applyMatrix4(m) {
+      for (let i = 0, l = this.data.count; i < l; i++) {
+        _vector$8.fromBufferAttribute(this, i);
+        _vector$8.applyMatrix4(m);
+        this.setXYZ(i, _vector$8.x, _vector$8.y, _vector$8.z);
+      }
+      return this;
+    }
+    /**
+     * Applies the given 3x3 normal matrix to the given attribute. Only works with
+     * item size `3`.
+     *
+     * @param {Matrix3} m - The normal matrix to apply.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    applyNormalMatrix(m) {
+      for (let i = 0, l = this.count; i < l; i++) {
+        _vector$8.fromBufferAttribute(this, i);
+        _vector$8.applyNormalMatrix(m);
+        this.setXYZ(i, _vector$8.x, _vector$8.y, _vector$8.z);
+      }
+      return this;
+    }
+    /**
+     * Applies the given 4x4 matrix to the given attribute. Only works with
+     * item size `3` and with direction vectors.
+     *
+     * @param {Matrix4} m - The matrix to apply.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    transformDirection(m) {
+      for (let i = 0, l = this.count; i < l; i++) {
+        _vector$8.fromBufferAttribute(this, i);
+        _vector$8.transformDirection(m);
+        this.setXYZ(i, _vector$8.x, _vector$8.y, _vector$8.z);
+      }
+      return this;
+    }
+    /**
+     * Returns the given component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} component - The component index.
+     * @return {number} The returned value.
+     */
+    getComponent(index, component) {
+      let value = this.array[index * this.data.stride + this.offset + component];
+      if (this.normalized) value = this._denormalize(value);
+      return value;
+    }
+    /**
+     * Sets the given value to the given component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} component - The component index.
+     * @param {number} value - The value to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setComponent(index, component, value) {
+      if (this.normalized) value = this._normalize(value);
+      this.data.array[index * this.data.stride + this.offset + component] = value;
+      return this;
+    }
+    /**
+     * Sets the x component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} x - The value to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setX(index, x) {
+      if (this.normalized) x = this._normalize(x);
+      this.data.array[index * this.data.stride + this.offset] = x;
+      return this;
+    }
+    /**
+     * Sets the y component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} y - The value to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setY(index, y) {
+      if (this.normalized) y = this._normalize(y);
+      this.data.array[index * this.data.stride + this.offset + 1] = y;
+      return this;
+    }
+    /**
+     * Sets the z component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} z - The value to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setZ(index, z) {
+      if (this.normalized) z = this._normalize(z);
+      this.data.array[index * this.data.stride + this.offset + 2] = z;
+      return this;
+    }
+    /**
+     * Sets the w component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} w - The value to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setW(index, w) {
+      if (this.normalized) w = this._normalize(w);
+      this.data.array[index * this.data.stride + this.offset + 3] = w;
+      return this;
+    }
+    /**
+     * Returns the x component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @return {number} The x component.
+     */
+    getX(index) {
+      let x = this.data.array[index * this.data.stride + this.offset];
+      if (this.normalized) x = this._denormalize(x);
+      return x;
+    }
+    /**
+     * Returns the y component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @return {number} The y component.
+     */
+    getY(index) {
+      let y = this.data.array[index * this.data.stride + this.offset + 1];
+      if (this.normalized) y = this._denormalize(y);
+      return y;
+    }
+    /**
+     * Returns the z component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @return {number} The z component.
+     */
+    getZ(index) {
+      let z = this.data.array[index * this.data.stride + this.offset + 2];
+      if (this.normalized) z = this._denormalize(z);
+      return z;
+    }
+    /**
+     * Returns the w component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @return {number} The w component.
+     */
+    getW(index) {
+      let w = this.data.array[index * this.data.stride + this.offset + 3];
+      if (this.normalized) w = this._denormalize(w);
+      return w;
+    }
+    /**
+     * Sets the x and y component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} x - The value for the x component to set.
+     * @param {number} y - The value for the y component to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setXY(index, x, y) {
+      index = index * this.data.stride + this.offset;
+      if (this.normalized) {
+        x = this._normalize(x);
+        y = this._normalize(y);
+      }
+      this.data.array[index + 0] = x;
+      this.data.array[index + 1] = y;
+      return this;
+    }
+    /**
+     * Sets the x, y and z component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} x - The value for the x component to set.
+     * @param {number} y - The value for the y component to set.
+     * @param {number} z - The value for the z component to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setXYZ(index, x, y, z) {
+      index = index * this.data.stride + this.offset;
+      if (this.normalized) {
+        x = this._normalize(x);
+        y = this._normalize(y);
+        z = this._normalize(z);
+      }
+      this.data.array[index + 0] = x;
+      this.data.array[index + 1] = y;
+      this.data.array[index + 2] = z;
+      return this;
+    }
+    /**
+     * Sets the x, y, z and w component of the vector at the given index.
+     *
+     * @param {number} index - The index into the buffer attribute.
+     * @param {number} x - The value for the x component to set.
+     * @param {number} y - The value for the y component to set.
+     * @param {number} z - The value for the z component to set.
+     * @param {number} w - The value for the w component to set.
+     * @return {InterleavedBufferAttribute} A reference to this instance.
+     */
+    setXYZW(index, x, y, z, w) {
+      index = index * this.data.stride + this.offset;
+      if (this.normalized) {
+        x = this._normalize(x);
+        y = this._normalize(y);
+        z = this._normalize(z);
+        w = this._normalize(w);
+      }
+      this.data.array[index + 0] = x;
+      this.data.array[index + 1] = y;
+      this.data.array[index + 2] = z;
+      this.data.array[index + 3] = w;
+      return this;
+    }
+    /**
+     * Returns a new buffer attribute with copied values from this instance.
+     *
+     * If no parameter is provided, cloning an interleaved buffer attribute will de-interleave buffer data.
+     *
+     * @param {Object} [data] - An object with interleaved buffers that allows to retain the interleaved property.
+     * @return {BufferAttribute|InterleavedBufferAttribute} A clone of this instance.
+     */
+    clone(data) {
+      if (data === void 0) {
+        log("InterleavedBufferAttribute.clone(): Cloning an interleaved buffer attribute will de-interleave buffer data.");
+        const array = [];
+        for (let i = 0; i < this.count; i++) {
+          const index = i * this.data.stride + this.offset;
+          for (let j = 0; j < this.itemSize; j++) {
+            array.push(this.data.array[index + j]);
+          }
+        }
+        return new BufferAttribute(new this.array.constructor(array), this.itemSize, this.normalized);
+      } else {
+        if (data.interleavedBuffers === void 0) {
+          data.interleavedBuffers = {};
+        }
+        if (data.interleavedBuffers[this.data.uuid] === void 0) {
+          data.interleavedBuffers[this.data.uuid] = this.data.clone(data);
+        }
+        return new _InterleavedBufferAttribute(data.interleavedBuffers[this.data.uuid], this.itemSize, this.offset, this.normalized);
+      }
+    }
+    /**
+     * Serializes the buffer attribute into JSON.
+     *
+     * If no parameter is provided, cloning an interleaved buffer attribute will de-interleave buffer data.
+     *
+     * @param {Object} [data] - An optional value holding meta information about the serialization.
+     * @return {Object} A JSON object representing the serialized buffer attribute.
+     */
+    toJSON(data) {
+      if (data === void 0) {
+        log("InterleavedBufferAttribute.toJSON(): Serializing an interleaved buffer attribute will de-interleave buffer data.");
+        const array = [];
+        for (let i = 0; i < this.count; i++) {
+          const index = i * this.data.stride + this.offset;
+          for (let j = 0; j < this.itemSize; j++) {
+            array.push(this.data.array[index + j]);
+          }
+        }
+        return {
+          itemSize: this.itemSize,
+          type: this.array.constructor.name,
+          array,
+          normalized: this.normalized
+        };
+      } else {
+        if (data.interleavedBuffers === void 0) {
+          data.interleavedBuffers = {};
+        }
+        if (data.interleavedBuffers[this.data.uuid] === void 0) {
+          data.interleavedBuffers[this.data.uuid] = this.data.toJSON(data);
+        }
+        return {
+          isInterleavedBufferAttribute: true,
+          itemSize: this.itemSize,
+          data: this.data.uuid,
+          offset: this.offset,
+          normalized: this.normalized
+        };
+      }
+    }
+    /**
+     * Denormalizes the value using cached normalization factor.
+     *
+     * @private
+     */
+    _denormalize(value) {
+      const scale = this._normalizationScale;
+      return scale !== void 0 ? Math.max(value / scale, -1) : denormalize(value, this.data.array);
+    }
+    /**
+     * Normalizes the value using cached normalization factor.
+     *
+     * @private
+     */
+    _normalize(value) {
+      const scale = this._normalizationScale;
+      return scale !== void 0 ? Math.round(value * scale) : normalize(value, this.data.array);
     }
   };
   var _vector1 = /* @__PURE__ */ new Vector3();
@@ -14472,6 +14479,180 @@
       if (value === true) this.version++;
     }
   };
+  var SpriteMaterial = class extends Material {
+    /**
+     * Constructs a new sprite material.
+     *
+     * @param {Object} [parameters] - An object with one or more properties
+     * defining the material's appearance. Any property of the material
+     * (including any property from inherited materials) can be passed
+     * in here. Color values can be passed any type of value accepted
+     * by {@link Color#set}.
+     */
+    constructor(parameters) {
+      super();
+      this.isSpriteMaterial = true;
+      this.type = "SpriteMaterial";
+      this.color = new Color(16777215);
+      this.map = null;
+      this.alphaMap = null;
+      this.rotation = 0;
+      this.sizeAttenuation = true;
+      this.transparent = true;
+      this.fog = true;
+      this.setValues(parameters);
+    }
+    copy(source) {
+      super.copy(source);
+      this.color.copy(source.color);
+      this.map = source.map;
+      this.alphaMap = source.alphaMap;
+      this.rotation = source.rotation;
+      this.sizeAttenuation = source.sizeAttenuation;
+      this.fog = source.fog;
+      return this;
+    }
+  };
+  var _geometry;
+  var _intersectPoint = /* @__PURE__ */ new Vector3();
+  var _worldScale = /* @__PURE__ */ new Vector3();
+  var _mvPosition = /* @__PURE__ */ new Vector3();
+  var _alignedPosition = /* @__PURE__ */ new Vector2();
+  var _rotatedPosition = /* @__PURE__ */ new Vector2();
+  var _viewWorldMatrix = /* @__PURE__ */ new Matrix4();
+  var _vA$1 = /* @__PURE__ */ new Vector3();
+  var _vB$1 = /* @__PURE__ */ new Vector3();
+  var _vC$1 = /* @__PURE__ */ new Vector3();
+  var _uvA = /* @__PURE__ */ new Vector2();
+  var _uvB = /* @__PURE__ */ new Vector2();
+  var _uvC = /* @__PURE__ */ new Vector2();
+  var Sprite = class extends Object3D {
+    /**
+     * Constructs a new sprite.
+     *
+     * @param {(SpriteMaterial|SpriteNodeMaterial)} [material] - The sprite material.
+     */
+    constructor(material = new SpriteMaterial()) {
+      super();
+      this.isSprite = true;
+      this.type = "Sprite";
+      if (_geometry === void 0) {
+        _geometry = new BufferGeometry();
+        const float32Array = new Float32Array([
+          -0.5,
+          -0.5,
+          0,
+          0,
+          0,
+          0.5,
+          -0.5,
+          0,
+          1,
+          0,
+          0.5,
+          0.5,
+          0,
+          1,
+          1,
+          -0.5,
+          0.5,
+          0,
+          0,
+          1
+        ]);
+        const interleavedBuffer = new InterleavedBuffer(float32Array, 5);
+        _geometry.setIndex([0, 1, 2, 0, 2, 3]);
+        _geometry.setAttribute("position", new InterleavedBufferAttribute(interleavedBuffer, 3, 0, false));
+        _geometry.setAttribute("uv", new InterleavedBufferAttribute(interleavedBuffer, 2, 3, false));
+      }
+      this.geometry = _geometry;
+      this.material = material;
+      this.center = new Vector2(0.5, 0.5);
+      this.count = 1;
+    }
+    /**
+     * Returns `true` if this sprite intersects the given frustum.
+     *
+     * @param {Frustum|FrustumArray} frustum - The frustum to test.
+     * @return {boolean} Whether this sprite intersects the given frustum or not.
+     */
+    intersectsFrustum(frustum) {
+      return frustum.intersectsSprite(this);
+    }
+    /**
+     * Computes intersection points between a casted ray and this sprite.
+     *
+     * @param {Raycaster} raycaster - The raycaster.
+     * @param {Array<Object>} intersects - The target array that holds the intersection points.
+     */
+    raycast(raycaster, intersects2) {
+      if (raycaster.camera === null) {
+        error('Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
+      }
+      _worldScale.setFromMatrixScale(this.matrixWorld);
+      _viewWorldMatrix.copy(raycaster.camera.matrixWorld);
+      this.modelViewMatrix.multiplyMatrices(raycaster.camera.matrixWorldInverse, this.matrixWorld);
+      _mvPosition.setFromMatrixPosition(this.modelViewMatrix);
+      if (raycaster.camera.isPerspectiveCamera && this.material.sizeAttenuation === false) {
+        _worldScale.multiplyScalar(-_mvPosition.z);
+      }
+      const rotation = this.material.rotation;
+      let sin, cos;
+      if (rotation !== 0) {
+        cos = Math.cos(rotation);
+        sin = Math.sin(rotation);
+      }
+      const center = this.center;
+      transformVertex(_vA$1.set(-0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      transformVertex(_vB$1.set(0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      transformVertex(_vC$1.set(0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      _uvA.set(0, 0);
+      _uvB.set(1, 0);
+      _uvC.set(1, 1);
+      let intersect2 = raycaster.ray.intersectTriangle(_vA$1, _vB$1, _vC$1, false, _intersectPoint);
+      if (intersect2 === null) {
+        transformVertex(_vB$1.set(-0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+        _uvB.set(0, 1);
+        intersect2 = raycaster.ray.intersectTriangle(_vA$1, _vC$1, _vB$1, false, _intersectPoint);
+        if (intersect2 === null) {
+          return;
+        }
+      }
+      const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
+      if (distance < raycaster.near || distance > raycaster.far) return;
+      intersects2.push({
+        distance,
+        point: _intersectPoint.clone(),
+        uv: Triangle.getInterpolation(_intersectPoint, _vA$1, _vB$1, _vC$1, _uvA, _uvB, _uvC, new Vector2()),
+        face: null,
+        object: this
+      });
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      if (source.center !== void 0) this.center.copy(source.center);
+      this.material = source.material;
+      return this;
+    }
+    toJSON(meta) {
+      const data = super.toJSON(meta);
+      data.object.center = this.center.toArray();
+      return data;
+    }
+  };
+  function transformVertex(vertexPosition, mvPosition, center, scale, sin, cos) {
+    _alignedPosition.subVectors(vertexPosition, center).addScalar(0.5).multiply(scale);
+    if (sin !== void 0) {
+      _rotatedPosition.x = cos * _alignedPosition.x - sin * _alignedPosition.y;
+      _rotatedPosition.y = sin * _alignedPosition.x + cos * _alignedPosition.y;
+    } else {
+      _rotatedPosition.copy(_alignedPosition);
+    }
+    vertexPosition.copy(mvPosition);
+    vertexPosition.x += _rotatedPosition.x;
+    vertexPosition.y += _rotatedPosition.y;
+    vertexPosition.applyMatrix4(_viewWorldMatrix);
+  }
   var _vector$7 = /* @__PURE__ */ new Vector3();
   var _segCenter = /* @__PURE__ */ new Vector3();
   var _segDir = /* @__PURE__ */ new Vector3();
@@ -15094,7 +15275,7 @@
      * @param {Raycaster} raycaster - The raycaster.
      * @param {Array<Object>} intersects - The target array that holds the intersection points.
      */
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const geometry = this.geometry;
       const material = this.material;
       const matrixWorld = this.matrixWorld;
@@ -15112,9 +15293,9 @@
       if (geometry.boundingBox !== null) {
         if (_ray$3.intersectsBox(geometry.boundingBox) === false) return;
       }
-      this._computeIntersections(raycaster, intersects, _ray$3);
+      this._computeIntersections(raycaster, intersects2, _ray$3);
     }
-    _computeIntersections(raycaster, intersects, rayLocalSpace) {
+    _computeIntersections(raycaster, intersects2, rayLocalSpace) {
       let intersection;
       const geometry = this.geometry;
       const material = this.material;
@@ -15140,7 +15321,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -15154,7 +15335,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -15173,7 +15354,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -15187,7 +15368,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -15195,13 +15376,13 @@
     }
   };
   function checkIntersection$1(object, material, raycaster, ray, pA, pB, pC, point) {
-    let intersect;
+    let intersect2;
     if (material.side === BackSide) {
-      intersect = ray.intersectTriangle(pC, pB, pA, true, point);
+      intersect2 = ray.intersectTriangle(pC, pB, pA, true, point);
     } else {
-      intersect = ray.intersectTriangle(pA, pB, pC, material.side === FrontSide, point);
+      intersect2 = ray.intersectTriangle(pA, pB, pC, material.side === FrontSide, point);
     }
-    if (intersect === null) return null;
+    if (intersect2 === null) return null;
     _intersectionPointWorld.copy(point);
     _intersectionPointWorld.applyMatrix4(object.matrixWorld);
     const distance = raycaster.ray.origin.distanceTo(_intersectionPointWorld);
@@ -15629,6 +15810,26 @@
       this.image = value;
     }
   };
+  var CanvasTexture = class extends Texture {
+    /**
+     * Constructs a new texture.
+     *
+     * @param {HTMLCanvasElement} [canvas] - The HTML canvas element.
+     * @param {number} [mapping=Texture.DEFAULT_MAPPING] - The texture mapping.
+     * @param {number} [wrapS=ClampToEdgeWrapping] - The wrapS value.
+     * @param {number} [wrapT=ClampToEdgeWrapping] - The wrapT value.
+     * @param {number} [magFilter=LinearFilter] - The mag filter value.
+     * @param {number} [minFilter=LinearMipmapLinearFilter] - The min filter value.
+     * @param {number} [format=RGBAFormat] - The texture format.
+     * @param {number} [type=UnsignedByteType] - The texture type.
+     * @param {number} [anisotropy=Texture.DEFAULT_ANISOTROPY] - The anisotropy value.
+     */
+    constructor(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy) {
+      super(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy);
+      this.isCanvasTexture = true;
+      this.needsUpdate = true;
+    }
+  };
   var DepthTexture = class extends Texture {
     /**
      * Constructs a new depth texture.
@@ -15821,126 +16022,6 @@
       return new _BoxGeometry(data.width, data.height, data.depth, data.widthSegments, data.heightSegments, data.depthSegments);
     }
   };
-  var CapsuleGeometry = class _CapsuleGeometry extends BufferGeometry {
-    /**
-     * Constructs a new capsule geometry.
-     *
-     * @param {number} [radius=1] - Radius of the capsule.
-     * @param {number} [height=1] - Height of the middle section.
-     * @param {number} [capSegments=4] - Number of curve segments used to build each cap.
-     * @param {number} [radialSegments=8] - Number of segmented faces around the circumference of the capsule. Must be an integer >= 3.
-     * @param {number} [heightSegments=1] - Number of rows of faces along the height of the middle section. Must be an integer >= 1.
-     */
-    constructor(radius = 1, height2 = 1, capSegments = 4, radialSegments = 8, heightSegments = 1) {
-      super();
-      this.type = "CapsuleGeometry";
-      this.parameters = {
-        radius,
-        height: height2,
-        capSegments,
-        radialSegments,
-        heightSegments
-      };
-      height2 = Math.max(0, height2);
-      capSegments = Math.max(1, Math.floor(capSegments));
-      radialSegments = Math.max(3, Math.floor(radialSegments));
-      heightSegments = Math.max(1, Math.floor(heightSegments));
-      const indices = [];
-      const vertices = [];
-      const normals = [];
-      const uvs = [];
-      const halfHeight = height2 / 2;
-      const capArcLength = Math.PI / 2 * radius;
-      const cylinderPartLength = height2;
-      const totalArcLength = 2 * capArcLength + cylinderPartLength;
-      const numVerticalSegments = capSegments * 2 + heightSegments;
-      const verticesPerRow = radialSegments + 1;
-      const normal = new Vector3();
-      const vertex2 = new Vector3();
-      for (let iy = 0; iy <= numVerticalSegments; iy++) {
-        let currentArcLength = 0;
-        let profileY = 0;
-        let profileRadius = 0;
-        let normalYComponent = 0;
-        if (iy <= capSegments) {
-          const segmentProgress = iy / capSegments;
-          const angle = segmentProgress * Math.PI / 2;
-          profileY = -halfHeight - radius * Math.cos(angle);
-          profileRadius = radius * Math.sin(angle);
-          normalYComponent = -radius * Math.cos(angle);
-          currentArcLength = segmentProgress * capArcLength;
-        } else if (iy <= capSegments + heightSegments) {
-          const segmentProgress = (iy - capSegments) / heightSegments;
-          profileY = -halfHeight + segmentProgress * height2;
-          profileRadius = radius;
-          normalYComponent = 0;
-          currentArcLength = capArcLength + segmentProgress * cylinderPartLength;
-        } else {
-          const segmentProgress = (iy - capSegments - heightSegments) / capSegments;
-          const angle = segmentProgress * Math.PI / 2;
-          profileY = halfHeight + radius * Math.sin(angle);
-          profileRadius = radius * Math.cos(angle);
-          normalYComponent = radius * Math.sin(angle);
-          currentArcLength = capArcLength + cylinderPartLength + segmentProgress * capArcLength;
-        }
-        const v = Math.max(0, Math.min(1, currentArcLength / totalArcLength));
-        let uOffset = 0;
-        if (iy === 0) {
-          uOffset = 0.5 / radialSegments;
-        } else if (iy === numVerticalSegments) {
-          uOffset = -0.5 / radialSegments;
-        }
-        for (let ix = 0; ix <= radialSegments; ix++) {
-          const u = ix / radialSegments;
-          const theta = u * Math.PI * 2;
-          const sinTheta = Math.sin(theta);
-          const cosTheta = Math.cos(theta);
-          vertex2.x = -profileRadius * cosTheta;
-          vertex2.y = profileY;
-          vertex2.z = profileRadius * sinTheta;
-          vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normal.set(
-            -profileRadius * cosTheta,
-            normalYComponent,
-            profileRadius * sinTheta
-          );
-          normal.normalize();
-          normals.push(normal.x, normal.y, normal.z);
-          uvs.push(u + uOffset, v);
-        }
-        if (iy > 0) {
-          const prevIndexRow = (iy - 1) * verticesPerRow;
-          for (let ix = 0; ix < radialSegments; ix++) {
-            const i1 = prevIndexRow + ix;
-            const i2 = prevIndexRow + ix + 1;
-            const i3 = iy * verticesPerRow + ix;
-            const i4 = iy * verticesPerRow + ix + 1;
-            indices.push(i1, i2, i3);
-            indices.push(i2, i4, i3);
-          }
-        }
-      }
-      this.setIndex(indices);
-      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
-      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
-      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-    }
-    copy(source) {
-      super.copy(source);
-      this.parameters = Object.assign({}, source.parameters);
-      return this;
-    }
-    /**
-     * Factory method for creating an instance of this class from the given
-     * JSON object.
-     *
-     * @param {Object} data - A JSON object representing the serialized geometry.
-     * @return {CapsuleGeometry} A new instance.
-     */
-    static fromJSON(data) {
-      return new _CapsuleGeometry(data.radius, data.height, data.capSegments, data.radialSegments, data.heightSegments);
-    }
-  };
   var CylinderGeometry = class _CylinderGeometry extends BufferGeometry {
     /**
      * Constructs a new cylinder geometry.
@@ -16038,10 +16119,10 @@
         const vertex2 = new Vector3();
         let groupCount = 0;
         const radius = top === true ? radiusTop : radiusBottom;
-        const sign = top === true ? 1 : -1;
+        const sign2 = top === true ? 1 : -1;
         for (let x = 1; x <= radialSegments; x++) {
-          vertices.push(0, halfHeight * sign, 0);
-          normals.push(0, sign, 0);
+          vertices.push(0, halfHeight * sign2, 0);
+          normals.push(0, sign2, 0);
           uvs.push(0.5, 0.5);
           index++;
         }
@@ -16052,12 +16133,12 @@
           const cosTheta = Math.cos(theta);
           const sinTheta = Math.sin(theta);
           vertex2.x = radius * sinTheta;
-          vertex2.y = halfHeight * sign;
+          vertex2.y = halfHeight * sign2;
           vertex2.z = radius * cosTheta;
           vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normals.push(0, sign, 0);
+          normals.push(0, sign2, 0);
           uv.x = cosTheta * 0.5 + 0.5;
-          uv.y = sinTheta * 0.5 * sign + 0.5;
+          uv.y = sinTheta * 0.5 * sign2 + 0.5;
           uvs.push(uv.x, uv.y);
           index++;
         }
@@ -16506,6 +16587,2084 @@
       return new _DodecahedronGeometry(data.radius, data.detail);
     }
   };
+  var Curve = class {
+    /**
+     * Constructs a new curve.
+     */
+    constructor() {
+      this.type = "Curve";
+      this.arcLengthDivisions = 200;
+      this.needsUpdate = false;
+      this.cacheArcLengths = null;
+    }
+    /**
+     * This method returns a vector in 2D or 3D space (depending on the curve definition)
+     * for the given interpolation factor.
+     *
+     * @abstract
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {(Vector2|Vector3)} [optionalTarget] - The optional target vector the result is written to.
+     * @return {(Vector2|Vector3)} The position on the curve. It can be a 2D or 3D vector depending on the curve definition.
+     */
+    getPoint() {
+      warn("Curve: .getPoint() not implemented.");
+    }
+    /**
+     * This method returns a vector in 2D or 3D space (depending on the curve definition)
+     * for the given interpolation factor. Unlike {@link Curve#getPoint}, this method honors the length
+     * of the curve which equidistant samples.
+     *
+     * @param {number} u - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {(Vector2|Vector3)} [optionalTarget] - The optional target vector the result is written to.
+     * @return {(Vector2|Vector3)} The position on the curve. It can be a 2D or 3D vector depending on the curve definition.
+     */
+    getPointAt(u, optionalTarget) {
+      const t = this.getUtoTmapping(u);
+      return this.getPoint(t, optionalTarget);
+    }
+    /**
+     * This method samples the curve via {@link Curve#getPoint} and returns an array of points representing
+     * the curve shape.
+     *
+     * @param {number} [divisions=5] - The number of divisions.
+     * @return {Array<(Vector2|Vector3)>} An array holding the sampled curve values. The number of points is `divisions + 1`.
+     */
+    getPoints(divisions = 5) {
+      const points = [];
+      for (let d = 0; d <= divisions; d++) {
+        points.push(this.getPoint(d / divisions));
+      }
+      return points;
+    }
+    // Get sequence of points using getPointAt( u )
+    /**
+     * This method samples the curve via {@link Curve#getPointAt} and returns an array of points representing
+     * the curve shape. Unlike {@link Curve#getPoints}, this method returns equi-spaced points across the entire
+     * curve.
+     *
+     * @param {number} [divisions=5] - The number of divisions.
+     * @return {Array<(Vector2|Vector3)>} An array holding the sampled curve values. The number of points is `divisions + 1`.
+     */
+    getSpacedPoints(divisions = 5) {
+      const points = [];
+      for (let d = 0; d <= divisions; d++) {
+        points.push(this.getPointAt(d / divisions));
+      }
+      return points;
+    }
+    /**
+     * Returns the total arc length of the curve.
+     *
+     * @return {number} The length of the curve.
+     */
+    getLength() {
+      const lengths = this.getLengths();
+      return lengths[lengths.length - 1];
+    }
+    /**
+     * Returns an array of cumulative segment lengths of the curve.
+     *
+     * @param {number} [divisions=this.arcLengthDivisions] - The number of divisions.
+     * @return {Array<number>} An array holding the cumulative segment lengths.
+     */
+    getLengths(divisions = this.arcLengthDivisions) {
+      if (this.cacheArcLengths && this.cacheArcLengths.length === divisions + 1 && !this.needsUpdate) {
+        return this.cacheArcLengths;
+      }
+      this.needsUpdate = false;
+      const cache = [];
+      let current, last = this.getPoint(0);
+      let sum = 0;
+      cache.push(0);
+      for (let p = 1; p <= divisions; p++) {
+        current = this.getPoint(p / divisions);
+        sum += current.distanceTo(last);
+        cache.push(sum);
+        last = current;
+      }
+      this.cacheArcLengths = cache;
+      return cache;
+    }
+    /**
+     * Update the cumulative segment distance cache. The method must be called
+     * every time curve parameters are changed. If an updated curve is part of a
+     * composed curve like {@link CurvePath}, this method must be called on the
+     * composed curve, too.
+     */
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.getLengths();
+    }
+    /**
+     * Given an interpolation factor in the range `[0,1]`, this method returns an updated
+     * interpolation factor in the same range that can be ued to sample equidistant points
+     * from a curve.
+     *
+     * @param {number} u - The interpolation factor.
+     * @param {?number} distance - An optional distance on the curve.
+     * @return {number} The updated interpolation factor.
+     */
+    getUtoTmapping(u, distance = null) {
+      const arcLengths = this.getLengths();
+      let i = 0;
+      const il = arcLengths.length;
+      let targetArcLength;
+      if (distance) {
+        targetArcLength = distance;
+      } else {
+        targetArcLength = u * arcLengths[il - 1];
+      }
+      let low = 0, high = il - 1, comparison;
+      while (low <= high) {
+        i = Math.floor(low + (high - low) / 2);
+        comparison = arcLengths[i] - targetArcLength;
+        if (comparison < 0) {
+          low = i + 1;
+        } else if (comparison > 0) {
+          high = i - 1;
+        } else {
+          high = i;
+          break;
+        }
+      }
+      i = high;
+      if (arcLengths[i] === targetArcLength) {
+        return i / (il - 1);
+      }
+      const lengthBefore = arcLengths[i];
+      const lengthAfter = arcLengths[i + 1];
+      const segmentLength = lengthAfter - lengthBefore;
+      const segmentFraction = (targetArcLength - lengthBefore) / segmentLength;
+      const t = (i + segmentFraction) / (il - 1);
+      return t;
+    }
+    /**
+     * Returns a unit vector tangent for the given interpolation factor.
+     * If the derived curve does not implement its tangent derivation,
+     * two points a small delta apart will be used to find its gradient
+     * which seems to give a reasonable approximation.
+     *
+     * @param {number} t - The interpolation factor.
+     * @param {(Vector2|Vector3)} [optionalTarget] - The optional target vector the result is written to.
+     * @return {(Vector2|Vector3)} The tangent vector.
+     */
+    getTangent(t, optionalTarget) {
+      const delta = 1e-4;
+      let t1 = t - delta;
+      let t2 = t + delta;
+      if (t1 < 0) t1 = 0;
+      if (t2 > 1) t2 = 1;
+      const pt1 = this.getPoint(t1);
+      const pt2 = this.getPoint(t2);
+      const tangent = optionalTarget || (pt1.isVector2 ? new Vector2() : new Vector3());
+      tangent.copy(pt2).sub(pt1).normalize();
+      return tangent;
+    }
+    /**
+     * Same as {@link Curve#getTangent} but with equidistant samples.
+     *
+     * @param {number} u - The interpolation factor.
+     * @param {(Vector2|Vector3)} [optionalTarget] - The optional target vector the result is written to.
+     * @return {(Vector2|Vector3)} The tangent vector.
+     * @see {@link Curve#getPointAt}
+     */
+    getTangentAt(u, optionalTarget) {
+      const t = this.getUtoTmapping(u);
+      return this.getTangent(t, optionalTarget);
+    }
+    /**
+     * Generates the Frenet Frames. Requires a curve definition in 3D space. Used
+     * in geometries like {@link TubeGeometry} or {@link ExtrudeGeometry}.
+     *
+     * @param {number} segments - The number of segments.
+     * @param {boolean} [closed=false] - Whether the curve is closed or not.
+     * @return {{tangents: Array<Vector3>, normals: Array<Vector3>, binormals: Array<Vector3>}} The Frenet Frames.
+     */
+    computeFrenetFrames(segments, closed = false) {
+      const normal = new Vector3();
+      const tangents = [];
+      const normals = [];
+      const binormals = [];
+      const vec = new Vector3();
+      const mat = new Matrix4();
+      for (let i = 0; i <= segments; i++) {
+        const u = i / segments;
+        tangents[i] = this.getTangentAt(u, new Vector3());
+      }
+      normals[0] = new Vector3();
+      binormals[0] = new Vector3();
+      let min = Number.MAX_VALUE;
+      const tx = Math.abs(tangents[0].x);
+      const ty = Math.abs(tangents[0].y);
+      const tz = Math.abs(tangents[0].z);
+      if (tx <= min) {
+        min = tx;
+        normal.set(1, 0, 0);
+      }
+      if (ty <= min) {
+        min = ty;
+        normal.set(0, 1, 0);
+      }
+      if (tz <= min) {
+        normal.set(0, 0, 1);
+      }
+      vec.crossVectors(tangents[0], normal).normalize();
+      normals[0].crossVectors(tangents[0], vec);
+      binormals[0].crossVectors(tangents[0], normals[0]);
+      for (let i = 1; i <= segments; i++) {
+        normals[i] = normals[i - 1].clone();
+        binormals[i] = binormals[i - 1].clone();
+        vec.crossVectors(tangents[i - 1], tangents[i]);
+        if (vec.length() > Number.EPSILON) {
+          vec.normalize();
+          const theta = Math.acos(clamp(tangents[i - 1].dot(tangents[i]), -1, 1));
+          normals[i].applyMatrix4(mat.makeRotationAxis(vec, theta));
+        }
+        binormals[i].crossVectors(tangents[i], normals[i]);
+      }
+      if (closed === true) {
+        let theta = Math.acos(clamp(normals[0].dot(normals[segments]), -1, 1));
+        theta /= segments;
+        if (tangents[0].dot(vec.crossVectors(normals[0], normals[segments])) > 0) {
+          theta = -theta;
+        }
+        for (let i = 1; i <= segments; i++) {
+          normals[i].applyMatrix4(mat.makeRotationAxis(tangents[i], theta * i));
+          binormals[i].crossVectors(tangents[i], normals[i]);
+        }
+      }
+      return {
+        tangents,
+        normals,
+        binormals
+      };
+    }
+    /**
+     * Returns a new curve with copied values from this instance.
+     *
+     * @return {Curve} A clone of this instance.
+     */
+    clone() {
+      return new this.constructor().copy(this);
+    }
+    /**
+     * Copies the values of the given curve to this instance.
+     *
+     * @param {Curve} source - The curve to copy.
+     * @return {Curve} A reference to this curve.
+     */
+    copy(source) {
+      this.arcLengthDivisions = source.arcLengthDivisions;
+      this.cacheArcLengths = null;
+      return this;
+    }
+    /**
+     * Serializes the curve into JSON.
+     *
+     * @return {Object} A JSON object representing the serialized curve.
+     * @see {@link ObjectLoader#parse}
+     */
+    toJSON() {
+      const data = {
+        metadata: {
+          version: 4.7,
+          type: "Curve",
+          generator: "Curve.toJSON"
+        }
+      };
+      data.arcLengthDivisions = this.arcLengthDivisions;
+      data.type = this.type;
+      return data;
+    }
+    /**
+     * Deserializes the curve from the given JSON.
+     *
+     * @param {Object} json - The JSON holding the serialized curve.
+     * @return {Curve} A reference to this curve.
+     */
+    fromJSON(json) {
+      this.arcLengthDivisions = json.arcLengthDivisions;
+      this.cacheArcLengths = null;
+      return this;
+    }
+  };
+  var EllipseCurve = class extends Curve {
+    /**
+     * Constructs a new ellipse curve.
+     *
+     * @param {number} [aX=0] - The X center of the ellipse.
+     * @param {number} [aY=0] - The Y center of the ellipse.
+     * @param {number} [xRadius=1] - The radius of the ellipse in the x direction.
+     * @param {number} [yRadius=1] - The radius of the ellipse in the y direction.
+     * @param {number} [aStartAngle=0] - The start angle of the curve in radians starting from the positive X axis.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle of the curve in radians starting from the positive X axis.
+     * @param {boolean} [aClockwise=false] - Whether the ellipse is drawn clockwise or not.
+     * @param {number} [aRotation=0] - The rotation angle of the ellipse in radians, counterclockwise from the positive X axis.
+     */
+    constructor(aX = 0, aY = 0, xRadius = 1, yRadius = 1, aStartAngle = 0, aEndAngle = Math.PI * 2, aClockwise = false, aRotation = 0) {
+      super();
+      this.isEllipseCurve = true;
+      this.type = "EllipseCurve";
+      this.aX = aX;
+      this.aY = aY;
+      this.xRadius = xRadius;
+      this.yRadius = yRadius;
+      this.aStartAngle = aStartAngle;
+      this.aEndAngle = aEndAngle;
+      this.aClockwise = aClockwise;
+      this.aRotation = aRotation;
+    }
+    /**
+     * Returns a point on the curve.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {Vector2} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector2} The position on the curve.
+     */
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const twoPi = Math.PI * 2;
+      let deltaAngle = this.aEndAngle - this.aStartAngle;
+      const samePoints = Math.abs(deltaAngle) < Number.EPSILON;
+      while (deltaAngle < 0) deltaAngle += twoPi;
+      while (deltaAngle > twoPi) deltaAngle -= twoPi;
+      if (deltaAngle < Number.EPSILON) {
+        if (samePoints) {
+          deltaAngle = 0;
+        } else {
+          deltaAngle = twoPi;
+        }
+      }
+      if (this.aClockwise === true && !samePoints) {
+        if (deltaAngle === twoPi) {
+          deltaAngle = -twoPi;
+        } else {
+          deltaAngle = deltaAngle - twoPi;
+        }
+      }
+      const angle = this.aStartAngle + t * deltaAngle;
+      let x = this.aX + this.xRadius * Math.cos(angle);
+      let y = this.aY + this.yRadius * Math.sin(angle);
+      if (this.aRotation !== 0) {
+        const cos = Math.cos(this.aRotation);
+        const sin = Math.sin(this.aRotation);
+        const tx = x - this.aX;
+        const ty = y - this.aY;
+        x = tx * cos - ty * sin + this.aX;
+        y = tx * sin + ty * cos + this.aY;
+      }
+      return point.set(x, y);
+    }
+    copy(source) {
+      super.copy(source);
+      this.aX = source.aX;
+      this.aY = source.aY;
+      this.xRadius = source.xRadius;
+      this.yRadius = source.yRadius;
+      this.aStartAngle = source.aStartAngle;
+      this.aEndAngle = source.aEndAngle;
+      this.aClockwise = source.aClockwise;
+      this.aRotation = source.aRotation;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.aX = this.aX;
+      data.aY = this.aY;
+      data.xRadius = this.xRadius;
+      data.yRadius = this.yRadius;
+      data.aStartAngle = this.aStartAngle;
+      data.aEndAngle = this.aEndAngle;
+      data.aClockwise = this.aClockwise;
+      data.aRotation = this.aRotation;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.aX = json.aX;
+      this.aY = json.aY;
+      this.xRadius = json.xRadius;
+      this.yRadius = json.yRadius;
+      this.aStartAngle = json.aStartAngle;
+      this.aEndAngle = json.aEndAngle;
+      this.aClockwise = json.aClockwise;
+      this.aRotation = json.aRotation;
+      return this;
+    }
+  };
+  var ArcCurve = class extends EllipseCurve {
+    /**
+     * Constructs a new arc curve.
+     *
+     * @param {number} [aX=0] - The X center of the ellipse.
+     * @param {number} [aY=0] - The Y center of the ellipse.
+     * @param {number} [aRadius=1] - The radius of the ellipse in the x direction.
+     * @param {number} [aStartAngle=0] - The start angle of the curve in radians starting from the positive X axis.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle of the curve in radians starting from the positive X axis.
+     * @param {boolean} [aClockwise=false] - Whether the ellipse is drawn clockwise or not.
+     */
+    constructor(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      super(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      this.isArcCurve = true;
+      this.type = "ArcCurve";
+    }
+  };
+  function CubicPoly() {
+    let c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+    function init(x0, x1, t0, t1) {
+      c0 = x0;
+      c1 = t0;
+      c2 = -3 * x0 + 3 * x1 - 2 * t0 - t1;
+      c3 = 2 * x0 - 2 * x1 + t0 + t1;
+    }
+    return {
+      initCatmullRom: function(x0, x1, x2, x3, tension) {
+        init(x1, x2, tension * (x2 - x0), tension * (x3 - x1));
+      },
+      initNonuniformCatmullRom: function(x0, x1, x2, x3, dt0, dt1, dt2) {
+        let t1 = (x1 - x0) / dt0 - (x2 - x0) / (dt0 + dt1) + (x2 - x1) / dt1;
+        let t2 = (x2 - x1) / dt1 - (x3 - x1) / (dt1 + dt2) + (x3 - x2) / dt2;
+        t1 *= dt1;
+        t2 *= dt1;
+        init(x1, x2, t1, t2);
+      },
+      calc: function(t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return c0 + c1 * t + c2 * t2 + c3 * t3;
+      }
+    };
+  }
+  var tmp = /* @__PURE__ */ new Vector3();
+  var tmp2 = /* @__PURE__ */ new Vector3();
+  var px = /* @__PURE__ */ new CubicPoly();
+  var py = /* @__PURE__ */ new CubicPoly();
+  var pz = /* @__PURE__ */ new CubicPoly();
+  var CatmullRomCurve3 = class extends Curve {
+    /**
+     * Constructs a new Catmull-Rom curve.
+     *
+     * @param {Array<Vector3>} [points] - An array of 3D points defining the curve.
+     * @param {boolean} [closed=false] - Whether the curve is closed or not.
+     * @param {('centripetal'|'chordal'|'catmullrom')} [curveType='centripetal'] - The curve type.
+     * @param {number} [tension=0.5] - Tension of the curve.
+     */
+    constructor(points = [], closed = false, curveType = "centripetal", tension = 0.5) {
+      super();
+      this.isCatmullRomCurve3 = true;
+      this.type = "CatmullRomCurve3";
+      this.points = points;
+      this.closed = closed;
+      this.curveType = curveType;
+      this.tension = tension;
+    }
+    /**
+     * Returns a point on the curve.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {Vector3} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector3} The position on the curve.
+     */
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const l = points.length;
+      const p = (l - (this.closed ? 0 : 1)) * t;
+      let intPoint = Math.floor(p);
+      let weight = p - intPoint;
+      if (this.closed) {
+        intPoint += intPoint > 0 ? 0 : (Math.floor(Math.abs(intPoint) / l) + 1) * l;
+      } else if (weight === 0 && intPoint === l - 1) {
+        intPoint = l - 2;
+        weight = 1;
+      }
+      let p0, p3;
+      if (this.closed || intPoint > 0) {
+        p0 = points[(intPoint - 1) % l];
+      } else {
+        tmp2.subVectors(points[0], points[1]).add(points[0]);
+        p0 = tmp2;
+      }
+      const p1 = points[intPoint % l];
+      const p2 = points[(intPoint + 1) % l];
+      if (this.closed || intPoint + 2 < l) {
+        p3 = points[(intPoint + 2) % l];
+      } else {
+        tmp.subVectors(points[l - 1], points[l - 2]).add(points[l - 1]);
+        p3 = tmp;
+      }
+      if (this.curveType === "centripetal" || this.curveType === "chordal") {
+        const pow = this.curveType === "chordal" ? 0.5 : 0.25;
+        let dt0 = Math.pow(p0.distanceToSquared(p1), pow);
+        let dt1 = Math.pow(p1.distanceToSquared(p2), pow);
+        let dt2 = Math.pow(p2.distanceToSquared(p3), pow);
+        if (dt1 < 1e-4) dt1 = 1;
+        if (dt0 < 1e-4) dt0 = dt1;
+        if (dt2 < 1e-4) dt2 = dt1;
+        px.initNonuniformCatmullRom(p0.x, p1.x, p2.x, p3.x, dt0, dt1, dt2);
+        py.initNonuniformCatmullRom(p0.y, p1.y, p2.y, p3.y, dt0, dt1, dt2);
+        pz.initNonuniformCatmullRom(p0.z, p1.z, p2.z, p3.z, dt0, dt1, dt2);
+      } else if (this.curveType === "catmullrom") {
+        px.initCatmullRom(p0.x, p1.x, p2.x, p3.x, this.tension);
+        py.initCatmullRom(p0.y, p1.y, p2.y, p3.y, this.tension);
+        pz.initCatmullRom(p0.z, p1.z, p2.z, p3.z, this.tension);
+      }
+      point.set(
+        px.calc(weight),
+        py.calc(weight),
+        pz.calc(weight)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i = 0, l = source.points.length; i < l; i++) {
+        const point = source.points[i];
+        this.points.push(point.clone());
+      }
+      this.closed = source.closed;
+      this.curveType = source.curveType;
+      this.tension = source.tension;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i = 0, l = this.points.length; i < l; i++) {
+        const point = this.points[i];
+        data.points.push(point.toArray());
+      }
+      data.closed = this.closed;
+      data.curveType = this.curveType;
+      data.tension = this.tension;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i = 0, l = json.points.length; i < l; i++) {
+        const point = json.points[i];
+        this.points.push(new Vector3().fromArray(point));
+      }
+      this.closed = json.closed;
+      this.curveType = json.curveType;
+      this.tension = json.tension;
+      return this;
+    }
+  };
+  function CatmullRom(t, p0, p1, p2, p3) {
+    const v0 = (p2 - p0) * 0.5;
+    const v1 = (p3 - p1) * 0.5;
+    const t2 = t * t;
+    const t3 = t * t2;
+    return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+  }
+  function QuadraticBezierP0(t, p) {
+    const k = 1 - t;
+    return k * k * p;
+  }
+  function QuadraticBezierP1(t, p) {
+    return 2 * (1 - t) * t * p;
+  }
+  function QuadraticBezierP2(t, p) {
+    return t * t * p;
+  }
+  function QuadraticBezier(t, p0, p1, p2) {
+    return QuadraticBezierP0(t, p0) + QuadraticBezierP1(t, p1) + QuadraticBezierP2(t, p2);
+  }
+  function CubicBezierP0(t, p) {
+    const k = 1 - t;
+    return k * k * k * p;
+  }
+  function CubicBezierP1(t, p) {
+    const k = 1 - t;
+    return 3 * k * k * t * p;
+  }
+  function CubicBezierP2(t, p) {
+    return 3 * (1 - t) * t * t * p;
+  }
+  function CubicBezierP3(t, p) {
+    return t * t * t * p;
+  }
+  function CubicBezier(t, p0, p1, p2, p3) {
+    return CubicBezierP0(t, p0) + CubicBezierP1(t, p1) + CubicBezierP2(t, p2) + CubicBezierP3(t, p3);
+  }
+  var CubicBezierCurve = class extends Curve {
+    /**
+     * Constructs a new Cubic Bezier curve.
+     *
+     * @param {Vector2} [v0] - The start point.
+     * @param {Vector2} [v1] - The first control point.
+     * @param {Vector2} [v2] - The second control point.
+     * @param {Vector2} [v3] - The end point.
+     */
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2(), v3 = new Vector2()) {
+      super();
+      this.isCubicBezierCurve = true;
+      this.type = "CubicBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    /**
+     * Returns a point on the curve.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {Vector2} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector2} The position on the curve.
+     */
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t, v0.y, v1.y, v2.y, v3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var CubicBezierCurve3 = class extends Curve {
+    /**
+     * Constructs a new Cubic Bezier curve.
+     *
+     * @param {Vector3} [v0] - The start point.
+     * @param {Vector3} [v1] - The first control point.
+     * @param {Vector3} [v2] - The second control point.
+     * @param {Vector3} [v3] - The end point.
+     */
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3()) {
+      super();
+      this.isCubicBezierCurve3 = true;
+      this.type = "CubicBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    /**
+     * Returns a point on the curve.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {Vector3} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector3} The position on the curve.
+     */
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t, v0.y, v1.y, v2.y, v3.y),
+        CubicBezier(t, v0.z, v1.z, v2.z, v3.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var LineCurve = class extends Curve {
+    /**
+     * Constructs a new line curve.
+     *
+     * @param {Vector2} [v1] - The start point.
+     * @param {Vector2} [v2] - The end point.
+     */
+    constructor(v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isLineCurve = true;
+      this.type = "LineCurve";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    /**
+     * Returns a point on the line.
+     *
+     * @param {number} t - A interpolation factor representing a position on the line. Must be in the range `[0,1]`.
+     * @param {Vector2} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector2} The position on the line.
+     */
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      if (t === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u, optionalTarget) {
+      return this.getPoint(u, optionalTarget);
+    }
+    getTangent(t, optionalTarget = new Vector2()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u, optionalTarget) {
+      return this.getTangent(u, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var LineCurve3 = class extends Curve {
+    /**
+     * Constructs a new line curve.
+     *
+     * @param {Vector3} [v1] - The start point.
+     * @param {Vector3} [v2] - The end point.
+     */
+    constructor(v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isLineCurve3 = true;
+      this.type = "LineCurve3";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    /**
+     * Returns a point on the line.
+     *
+     * @param {number} t - A interpolation factor representing a position on the line. Must be in the range `[0,1]`.
+     * @param {Vector3} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector3} The position on the line.
+     */
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      if (t === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u, optionalTarget) {
+      return this.getPoint(u, optionalTarget);
+    }
+    getTangent(t, optionalTarget = new Vector3()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u, optionalTarget) {
+      return this.getTangent(u, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve = class extends Curve {
+    /**
+     * Constructs a new Quadratic Bezier curve.
+     *
+     * @param {Vector2} [v0] - The start point.
+     * @param {Vector2} [v1] - The control point.
+     * @param {Vector2} [v2] - The end point.
+     */
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isQuadraticBezierCurve = true;
+      this.type = "QuadraticBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    /**
+     * Returns a point on the curve.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {Vector2} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector2} The position on the curve.
+     */
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t, v0.x, v1.x, v2.x),
+        QuadraticBezier(t, v0.y, v1.y, v2.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve3 = class extends Curve {
+    /**
+     * Constructs a new Quadratic Bezier curve.
+     *
+     * @param {Vector3} [v0] - The start point.
+     * @param {Vector3} [v1] - The control point.
+     * @param {Vector3} [v2] - The end point.
+     */
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isQuadraticBezierCurve3 = true;
+      this.type = "QuadraticBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    /**
+     * Returns a point on the curve.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {Vector3} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector3} The position on the curve.
+     */
+    getPoint(t, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t, v0.x, v1.x, v2.x),
+        QuadraticBezier(t, v0.y, v1.y, v2.y),
+        QuadraticBezier(t, v0.z, v1.z, v2.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var SplineCurve = class extends Curve {
+    /**
+     * Constructs a new 2D spline curve.
+     *
+     * @param {Array<Vector2>} [points] -  An array of 2D points defining the curve.
+     */
+    constructor(points = []) {
+      super();
+      this.isSplineCurve = true;
+      this.type = "SplineCurve";
+      this.points = points;
+    }
+    /**
+     * Returns a point on the curve.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {Vector2} [optionalTarget] - The optional target vector the result is written to.
+     * @return {Vector2} The position on the curve.
+     */
+    getPoint(t, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const p = (points.length - 1) * t;
+      const intPoint = Math.floor(p);
+      const weight = p - intPoint;
+      const p0 = points[intPoint === 0 ? intPoint : intPoint - 1];
+      const p1 = points[intPoint];
+      const p2 = points[intPoint > points.length - 2 ? points.length - 1 : intPoint + 1];
+      const p3 = points[intPoint > points.length - 3 ? points.length - 1 : intPoint + 2];
+      point.set(
+        CatmullRom(weight, p0.x, p1.x, p2.x, p3.x),
+        CatmullRom(weight, p0.y, p1.y, p2.y, p3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i = 0, l = source.points.length; i < l; i++) {
+        const point = source.points[i];
+        this.points.push(point.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i = 0, l = this.points.length; i < l; i++) {
+        const point = this.points[i];
+        data.points.push(point.toArray());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i = 0, l = json.points.length; i < l; i++) {
+        const point = json.points[i];
+        this.points.push(new Vector2().fromArray(point));
+      }
+      return this;
+    }
+  };
+  var Curves = /* @__PURE__ */ Object.freeze({
+    __proto__: null,
+    ArcCurve,
+    CatmullRomCurve3,
+    CubicBezierCurve,
+    CubicBezierCurve3,
+    EllipseCurve,
+    LineCurve,
+    LineCurve3,
+    QuadraticBezierCurve,
+    QuadraticBezierCurve3,
+    SplineCurve
+  });
+  var CurvePath = class extends Curve {
+    /**
+     * Constructs a new curve path.
+     */
+    constructor() {
+      super();
+      this.type = "CurvePath";
+      this.curves = [];
+      this.autoClose = false;
+      this.cacheLengths = null;
+    }
+    /**
+     * Adds a curve to this curve path.
+     *
+     * @param {Curve} curve - The curve to add.
+     */
+    add(curve) {
+      this.curves.push(curve);
+    }
+    /**
+     * Adds a line curve to close the path.
+     *
+     * @return {CurvePath} A reference to this curve path.
+     */
+    closePath() {
+      const startPoint = this.curves[0].getPoint(0);
+      const endPoint = this.curves[this.curves.length - 1].getPoint(1);
+      if (!startPoint.equals(endPoint)) {
+        const lineType = startPoint.isVector2 === true ? "LineCurve" : "LineCurve3";
+        this.curves.push(new Curves[lineType](endPoint, startPoint));
+      }
+      return this;
+    }
+    /**
+     * This method returns a vector in 2D or 3D space (depending on the curve definitions)
+     * for the given interpolation factor.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {(Vector2|Vector3)} [optionalTarget] - The optional target vector the result is written to.
+     * @return {?(Vector2|Vector3)} The position on the curve. It can be a 2D or 3D vector depending on the curve definition.
+     */
+    getPoint(t, optionalTarget) {
+      const d = t * this.getLength();
+      const curveLengths = this.getCurveLengths();
+      let i = 0;
+      while (i < curveLengths.length) {
+        if (curveLengths[i] >= d) {
+          const diff = curveLengths[i] - d;
+          const curve = this.curves[i];
+          const segmentLength = curve.getLength();
+          const u = segmentLength === 0 ? 0 : 1 - diff / segmentLength;
+          return curve.getPointAt(u, optionalTarget);
+        }
+        i++;
+      }
+      return null;
+    }
+    getLength() {
+      const lens = this.getCurveLengths();
+      return lens[lens.length - 1];
+    }
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.cacheLengths = null;
+      this.getCurveLengths();
+    }
+    /**
+     * Returns list of cumulative curve lengths of the defined curves.
+     *
+     * @return {Array<number>} The curve lengths.
+     */
+    getCurveLengths() {
+      if (this.cacheLengths && this.cacheLengths.length === this.curves.length) {
+        return this.cacheLengths;
+      }
+      const lengths = [];
+      let sums = 0;
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        sums += this.curves[i].getLength();
+        lengths.push(sums);
+      }
+      this.cacheLengths = lengths;
+      return lengths;
+    }
+    getSpacedPoints(divisions = 40) {
+      const points = [];
+      for (let i = 0; i <= divisions; i++) {
+        points.push(this.getPoint(i / divisions));
+      }
+      if (this.autoClose) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    getPoints(divisions = 12) {
+      const points = [];
+      let last;
+      for (let i = 0, curves = this.curves; i < curves.length; i++) {
+        const curve = curves[i];
+        const resolution = curve.isEllipseCurve ? divisions * 2 : curve.isLineCurve || curve.isLineCurve3 ? 1 : curve.isSplineCurve ? divisions * curve.points.length : divisions;
+        const pts = curve.getPoints(resolution);
+        for (let j = 0; j < pts.length; j++) {
+          const point = pts[j];
+          if (last && last.equals(point)) continue;
+          points.push(point);
+          last = point;
+        }
+      }
+      if (this.autoClose && points.length > 1 && !points[points.length - 1].equals(points[0])) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    copy(source) {
+      super.copy(source);
+      this.curves = [];
+      for (let i = 0, l = source.curves.length; i < l; i++) {
+        const curve = source.curves[i];
+        this.curves.push(curve.clone());
+      }
+      this.autoClose = source.autoClose;
+      this.cacheLengths = null;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.autoClose = this.autoClose;
+      data.curves = [];
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        const curve = this.curves[i];
+        data.curves.push(curve.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.autoClose = json.autoClose;
+      this.curves = [];
+      for (let i = 0, l = json.curves.length; i < l; i++) {
+        const curve = json.curves[i];
+        this.curves.push(new Curves[curve.type]().fromJSON(curve));
+      }
+      this.cacheLengths = null;
+      return this;
+    }
+  };
+  var Path = class extends CurvePath {
+    /**
+     * Constructs a new path.
+     *
+     * @param {Array<Vector2>} [points] - An array of 2D points defining the path.
+     */
+    constructor(points) {
+      super();
+      this.type = "Path";
+      this.currentPoint = new Vector2();
+      if (points) {
+        this.setFromPoints(points);
+      }
+    }
+    /**
+     * Creates a path from the given list of points. The points are added
+     * to the path as instances of {@link LineCurve}.
+     *
+     * @param {Array<Vector2>} points - An array of 2D points.
+     * @return {Path} A reference to this path.
+     */
+    setFromPoints(points) {
+      this.moveTo(points[0].x, points[0].y);
+      for (let i = 1, l = points.length; i < l; i++) {
+        this.lineTo(points[i].x, points[i].y);
+      }
+      return this;
+    }
+    /**
+     * Moves {@link Path#currentPoint} to the given point.
+     *
+     * @param {number} x - The x coordinate.
+     * @param {number} y - The y coordinate.
+     * @return {Path} A reference to this path.
+     */
+    moveTo(x, y) {
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link LineCurve} to the path by connecting
+     * the current point with the given one.
+     *
+     * @param {number} x - The x coordinate of the end point.
+     * @param {number} y - The y coordinate of the end point.
+     * @return {Path} A reference to this path.
+     */
+    lineTo(x, y) {
+      const curve = new LineCurve(this.currentPoint.clone(), new Vector2(x, y));
+      this.curves.push(curve);
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link QuadraticBezierCurve} to the path by connecting
+     * the current point with the given one.
+     *
+     * @param {number} aCPx - The x coordinate of the control point.
+     * @param {number} aCPy - The y coordinate of the control point.
+     * @param {number} aX - The x coordinate of the end point.
+     * @param {number} aY - The y coordinate of the end point.
+     * @return {Path} A reference to this path.
+     */
+    quadraticCurveTo(aCPx, aCPy, aX, aY) {
+      const curve = new QuadraticBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCPx, aCPy),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link CubicBezierCurve} to the path by connecting
+     * the current point with the given one.
+     *
+     * @param {number} aCP1x - The x coordinate of the first control point.
+     * @param {number} aCP1y - The y coordinate of the first control point.
+     * @param {number} aCP2x - The x coordinate of the second control point.
+     * @param {number} aCP2y - The y coordinate of the second control point.
+     * @param {number} aX - The x coordinate of the end point.
+     * @param {number} aY - The y coordinate of the end point.
+     * @return {Path} A reference to this path.
+     */
+    bezierCurveTo(aCP1x, aCP1y, aCP2x, aCP2y, aX, aY) {
+      const curve = new CubicBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCP1x, aCP1y),
+        new Vector2(aCP2x, aCP2y),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link SplineCurve} to the path by connecting
+     * the current point with the given list of points.
+     *
+     * @param {Array<Vector2>} pts - An array of points in 2D space.
+     * @return {Path} A reference to this path.
+     */
+    splineThru(pts) {
+      const npts = [this.currentPoint.clone()].concat(pts);
+      const curve = new SplineCurve(npts);
+      this.curves.push(curve);
+      this.currentPoint.copy(pts[pts.length - 1]);
+      return this;
+    }
+    /**
+     * Adds an arc as an instance of {@link EllipseCurve} to the path, positioned relative
+     * to the current point.
+     *
+     * @param {number} [aX=0] - The x coordinate of the center of the arc offsetted from the previous curve.
+     * @param {number} [aY=0] - The y coordinate of the center of the arc offsetted from the previous curve.
+     * @param {number} [aRadius=1] - The radius of the arc.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the arc clockwise or not.
+     * @return {Path} A reference to this path.
+     */
+    arc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absarc(
+        aX + x0,
+        aY + y0,
+        aRadius,
+        aStartAngle,
+        aEndAngle,
+        aClockwise
+      );
+      return this;
+    }
+    /**
+     * Adds an absolutely positioned arc as an instance of {@link EllipseCurve} to the path.
+     *
+     * @param {number} [aX=0] - The x coordinate of the center of the arc.
+     * @param {number} [aY=0] - The y coordinate of the center of the arc.
+     * @param {number} [aRadius=1] - The radius of the arc.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the arc clockwise or not.
+     * @return {Path} A reference to this path.
+     */
+    absarc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      this.absellipse(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      return this;
+    }
+    /**
+     * Adds an ellipse as an instance of {@link EllipseCurve} to the path, positioned relative
+     * to the current point
+     *
+     * @param {number} [aX=0] - The x coordinate of the center of the ellipse offsetted from the previous curve.
+     * @param {number} [aY=0] - The y coordinate of the center of the ellipse offsetted from the previous curve.
+     * @param {number} [xRadius=1] - The radius of the ellipse in the x axis.
+     * @param {number} [yRadius=1] - The radius of the ellipse in the y axis.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the ellipse clockwise or not.
+     * @param {number} [aRotation=0] - The rotation angle of the ellipse in radians, counterclockwise from the positive X axis.
+     * @return {Path} A reference to this path.
+     */
+    ellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absellipse(aX + x0, aY + y0, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      return this;
+    }
+    /**
+     * Adds an absolutely positioned ellipse as an instance of {@link EllipseCurve} to the path.
+     *
+     * @param {number} [aX=0] - The x coordinate of the absolute center of the ellipse.
+     * @param {number} [aY=0] - The y coordinate of the absolute center of the ellipse.
+     * @param {number} [xRadius=1] - The radius of the ellipse in the x axis.
+     * @param {number} [yRadius=1] - The radius of the ellipse in the y axis.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the ellipse clockwise or not.
+     * @param {number} [aRotation=0] - The rotation angle of the ellipse in radians, counterclockwise from the positive X axis.
+     * @return {Path} A reference to this path.
+     */
+    absellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const curve = new EllipseCurve(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      if (this.curves.length > 0) {
+        const firstPoint = curve.getPoint(0);
+        if (!firstPoint.equals(this.currentPoint)) {
+          this.lineTo(firstPoint.x, firstPoint.y);
+        }
+      }
+      this.curves.push(curve);
+      const lastPoint = curve.getPoint(1);
+      this.currentPoint.copy(lastPoint);
+      return this;
+    }
+    copy(source) {
+      super.copy(source);
+      this.currentPoint.copy(source.currentPoint);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.currentPoint = this.currentPoint.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.currentPoint.fromArray(json.currentPoint);
+      return this;
+    }
+  };
+  var Shape = class extends Path {
+    /**
+     * Constructs a new shape.
+     *
+     * @param {Array<Vector2>} [points] - An array of 2D points defining the shape.
+     */
+    constructor(points) {
+      super(points);
+      this.uuid = generateUUID();
+      this.type = "Shape";
+      this.holes = [];
+    }
+    /**
+     * Returns an array representing each contour of the holes
+     * as a list of 2D points.
+     *
+     * @param {number} divisions - The fineness of the result.
+     * @return {Array<Array<Vector2>>} The holes as a series of 2D points.
+     */
+    getPointsHoles(divisions) {
+      const holesPts = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        holesPts[i] = this.holes[i].getPoints(divisions);
+      }
+      return holesPts;
+    }
+    // get points of shape and holes (keypoints based on segments parameter)
+    /**
+     * Returns an object that holds contour data for the shape and its holes as
+     * arrays of 2D points.
+     *
+     * @param {number} divisions - The fineness of the result.
+     * @return {{shape:Array<Vector2>,holes:Array<Array<Vector2>>}} An object with contour data.
+     */
+    extractPoints(divisions) {
+      return {
+        shape: this.getPoints(divisions),
+        holes: this.getPointsHoles(divisions)
+      };
+    }
+    copy(source) {
+      super.copy(source);
+      this.holes = [];
+      for (let i = 0, l = source.holes.length; i < l; i++) {
+        const hole = source.holes[i];
+        this.holes.push(hole.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.uuid = this.uuid;
+      data.holes = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        const hole = this.holes[i];
+        data.holes.push(hole.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.uuid = json.uuid;
+      this.holes = [];
+      for (let i = 0, l = json.holes.length; i < l; i++) {
+        const hole = json.holes[i];
+        this.holes.push(new Path().fromJSON(hole));
+      }
+      return this;
+    }
+  };
+  function earcut(data, holeIndices, dim = 2) {
+    const hasHoles = holeIndices && holeIndices.length;
+    const outerLen = hasHoles ? holeIndices[0] * dim : data.length;
+    let outerNode = linkedList(data, 0, outerLen, dim, true);
+    const triangles = [];
+    if (!outerNode || outerNode.next === outerNode.prev) return triangles;
+    let minX, minY, invSize;
+    if (hasHoles) outerNode = eliminateHoles(data, holeIndices, outerNode, dim);
+    if (data.length > 80 * dim) {
+      minX = data[0];
+      minY = data[1];
+      let maxX = minX;
+      let maxY = minY;
+      for (let i = dim; i < outerLen; i += dim) {
+        const x = data[i];
+        const y = data[i + 1];
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+      invSize = Math.max(maxX - minX, maxY - minY);
+      invSize = invSize !== 0 ? 32767 / invSize : 0;
+    }
+    earcutLinked(outerNode, triangles, dim, minX, minY, invSize, 0);
+    return triangles;
+  }
+  function linkedList(data, start, end, dim, clockwise) {
+    let last;
+    if (clockwise === signedArea(data, start, end, dim) > 0) {
+      for (let i = start; i < end; i += dim) last = insertNode(i / dim | 0, data[i], data[i + 1], last);
+    } else {
+      for (let i = end - dim; i >= start; i -= dim) last = insertNode(i / dim | 0, data[i], data[i + 1], last);
+    }
+    if (last && equals(last, last.next)) {
+      removeNode(last);
+      last = last.next;
+    }
+    return last;
+  }
+  function filterPoints(start, end) {
+    if (!start) return start;
+    if (!end) end = start;
+    let p = start, again;
+    do {
+      again = false;
+      if (!p.steiner && (equals(p, p.next) || area(p.prev, p, p.next) === 0)) {
+        removeNode(p);
+        p = end = p.prev;
+        if (p === p.next) break;
+        again = true;
+      } else {
+        p = p.next;
+      }
+    } while (again || p !== end);
+    return end;
+  }
+  function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
+    if (!ear) return;
+    if (!pass && invSize) indexCurve(ear, minX, minY, invSize);
+    let stop = ear;
+    while (ear.prev !== ear.next) {
+      const prev = ear.prev;
+      const next = ear.next;
+      if (invSize ? isEarHashed(ear, minX, minY, invSize) : isEar(ear)) {
+        triangles.push(prev.i, ear.i, next.i);
+        removeNode(ear);
+        ear = next.next;
+        stop = next.next;
+        continue;
+      }
+      ear = next;
+      if (ear === stop) {
+        if (!pass) {
+          earcutLinked(filterPoints(ear), triangles, dim, minX, minY, invSize, 1);
+        } else if (pass === 1) {
+          ear = cureLocalIntersections(filterPoints(ear), triangles);
+          earcutLinked(ear, triangles, dim, minX, minY, invSize, 2);
+        } else if (pass === 2) {
+          splitEarcut(ear, triangles, dim, minX, minY, invSize);
+        }
+        break;
+      }
+    }
+  }
+  function isEar(ear) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+    let p = c.next;
+    while (p !== a) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.next;
+    }
+    return true;
+  }
+  function isEarHashed(ear, minX, minY, invSize) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+    const minZ = zOrder(x0, y0, minX, minY, invSize), maxZ = zOrder(x1, y1, minX, minY, invSize);
+    let p = ear.prevZ, n = ear.nextZ;
+    while (p && p.z >= minZ && n && n.z <= maxZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    while (p && p.z >= minZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+    }
+    while (n && n.z <= maxZ) {
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    return true;
+  }
+  function cureLocalIntersections(start, triangles) {
+    let p = start;
+    do {
+      const a = p.prev, b = p.next.next;
+      if (!equals(a, b) && intersects(a, p, p.next, b) && locallyInside(a, b) && locallyInside(b, a)) {
+        triangles.push(a.i, p.i, b.i);
+        removeNode(p);
+        removeNode(p.next);
+        p = start = b;
+      }
+      p = p.next;
+    } while (p !== start);
+    return filterPoints(p);
+  }
+  function splitEarcut(start, triangles, dim, minX, minY, invSize) {
+    let a = start;
+    do {
+      let b = a.next.next;
+      while (b !== a.prev) {
+        if (a.i !== b.i && isValidDiagonal(a, b)) {
+          let c = splitPolygon(a, b);
+          a = filterPoints(a, a.next);
+          c = filterPoints(c, c.next);
+          earcutLinked(a, triangles, dim, minX, minY, invSize, 0);
+          earcutLinked(c, triangles, dim, minX, minY, invSize, 0);
+          return;
+        }
+        b = b.next;
+      }
+      a = a.next;
+    } while (a !== start);
+  }
+  function eliminateHoles(data, holeIndices, outerNode, dim) {
+    const queue = [];
+    for (let i = 0, len = holeIndices.length; i < len; i++) {
+      const start = holeIndices[i] * dim;
+      const end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
+      const list = linkedList(data, start, end, dim, false);
+      if (list === list.next) list.steiner = true;
+      queue.push(getLeftmost(list));
+    }
+    queue.sort(compareXYSlope);
+    for (let i = 0; i < queue.length; i++) {
+      outerNode = eliminateHole(queue[i], outerNode);
+    }
+    return outerNode;
+  }
+  function compareXYSlope(a, b) {
+    let result = a.x - b.x;
+    if (result === 0) {
+      result = a.y - b.y;
+      if (result === 0) {
+        const aSlope = (a.next.y - a.y) / (a.next.x - a.x);
+        const bSlope = (b.next.y - b.y) / (b.next.x - b.x);
+        result = aSlope - bSlope;
+      }
+    }
+    return result;
+  }
+  function eliminateHole(hole, outerNode) {
+    const bridge = findHoleBridge(hole, outerNode);
+    if (!bridge) {
+      return outerNode;
+    }
+    const bridgeReverse = splitPolygon(bridge, hole);
+    filterPoints(bridgeReverse, bridgeReverse.next);
+    return filterPoints(bridge, bridge.next);
+  }
+  function findHoleBridge(hole, outerNode) {
+    let p = outerNode;
+    const hx = hole.x;
+    const hy = hole.y;
+    let qx = -Infinity;
+    let m;
+    if (equals(hole, p)) return p;
+    do {
+      if (equals(hole, p.next)) return p.next;
+      else if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
+        const x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
+        if (x <= hx && x > qx) {
+          qx = x;
+          m = p.x < p.next.x ? p : p.next;
+          if (x === hx) return m;
+        }
+      }
+      p = p.next;
+    } while (p !== outerNode);
+    if (!m) return null;
+    const stop = m;
+    const mx = m.x;
+    const my = m.y;
+    let tanMin = Infinity;
+    p = m;
+    do {
+      if (hx >= p.x && p.x >= mx && hx !== p.x && pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
+        const tan = Math.abs(hy - p.y) / (hx - p.x);
+        if (locallyInside(p, hole) && (tan < tanMin || tan === tanMin && (p.x > m.x || p.x === m.x && sectorContainsSector(m, p)))) {
+          m = p;
+          tanMin = tan;
+        }
+      }
+      p = p.next;
+    } while (p !== stop);
+    return m;
+  }
+  function sectorContainsSector(m, p) {
+    return area(m.prev, m, p.prev) < 0 && area(p.next, m, m.next) < 0;
+  }
+  function indexCurve(start, minX, minY, invSize) {
+    let p = start;
+    do {
+      if (p.z === 0) p.z = zOrder(p.x, p.y, minX, minY, invSize);
+      p.prevZ = p.prev;
+      p.nextZ = p.next;
+      p = p.next;
+    } while (p !== start);
+    p.prevZ.nextZ = null;
+    p.prevZ = null;
+    sortLinked(p);
+  }
+  function sortLinked(list) {
+    let numMerges;
+    let inSize = 1;
+    do {
+      let p = list;
+      let e;
+      list = null;
+      let tail = null;
+      numMerges = 0;
+      while (p) {
+        numMerges++;
+        let q = p;
+        let pSize = 0;
+        for (let i = 0; i < inSize; i++) {
+          pSize++;
+          q = q.nextZ;
+          if (!q) break;
+        }
+        let qSize = inSize;
+        while (pSize > 0 || qSize > 0 && q) {
+          if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
+            e = p;
+            p = p.nextZ;
+            pSize--;
+          } else {
+            e = q;
+            q = q.nextZ;
+            qSize--;
+          }
+          if (tail) tail.nextZ = e;
+          else list = e;
+          e.prevZ = tail;
+          tail = e;
+        }
+        p = q;
+      }
+      tail.nextZ = null;
+      inSize *= 2;
+    } while (numMerges > 1);
+    return list;
+  }
+  function zOrder(x, y, minX, minY, invSize) {
+    x = (x - minX) * invSize | 0;
+    y = (y - minY) * invSize | 0;
+    x = (x | x << 8) & 16711935;
+    x = (x | x << 4) & 252645135;
+    x = (x | x << 2) & 858993459;
+    x = (x | x << 1) & 1431655765;
+    y = (y | y << 8) & 16711935;
+    y = (y | y << 4) & 252645135;
+    y = (y | y << 2) & 858993459;
+    y = (y | y << 1) & 1431655765;
+    return x | y << 1;
+  }
+  function getLeftmost(start) {
+    let p = start, leftmost = start;
+    do {
+      if (p.x < leftmost.x || p.x === leftmost.x && p.y < leftmost.y) leftmost = p;
+      p = p.next;
+    } while (p !== start);
+    return leftmost;
+  }
+  function pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2) {
+    return (cx - px2) * (ay - py2) >= (ax - px2) * (cy - py2) && (ax - px2) * (by - py2) >= (bx - px2) * (ay - py2) && (bx - px2) * (cy - py2) >= (cx - px2) * (by - py2);
+  }
+  function pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, px2, py2) {
+    return !(ax === px2 && ay === py2) && pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2);
+  }
+  function isValidDiagonal(a, b) {
+    return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) && // doesn't intersect other edges
+    (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
+    (area(a.prev, a, b.prev) || area(a, b.prev, b)) || // does not create opposite-facing sectors
+    equals(a, b) && area(a.prev, a, a.next) > 0 && area(b.prev, b, b.next) > 0);
+  }
+  function area(p, q, r) {
+    return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+  }
+  function equals(p1, p2) {
+    return p1.x === p2.x && p1.y === p2.y;
+  }
+  function intersects(p1, q1, p2, q2) {
+    const o1 = sign(area(p1, q1, p2));
+    const o2 = sign(area(p1, q1, q2));
+    const o3 = sign(area(p2, q2, p1));
+    const o4 = sign(area(p2, q2, q1));
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+    if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+    if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+    if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+    return false;
+  }
+  function onSegment(p, q, r) {
+    return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+  }
+  function sign(num) {
+    return num > 0 ? 1 : num < 0 ? -1 : 0;
+  }
+  function intersectsPolygon(a, b) {
+    let p = a;
+    do {
+      if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i && intersects(p, p.next, a, b)) return true;
+      p = p.next;
+    } while (p !== a);
+    return false;
+  }
+  function locallyInside(a, b) {
+    return area(a.prev, a, a.next) < 0 ? area(a, b, a.next) >= 0 && area(a, a.prev, b) >= 0 : area(a, b, a.prev) < 0 || area(a, a.next, b) < 0;
+  }
+  function middleInside(a, b) {
+    let p = a;
+    let inside = false;
+    const px2 = (a.x + b.x) / 2;
+    const py2 = (a.y + b.y) / 2;
+    do {
+      if (p.y > py2 !== p.next.y > py2 && p.next.y !== p.y && px2 < (p.next.x - p.x) * (py2 - p.y) / (p.next.y - p.y) + p.x)
+        inside = !inside;
+      p = p.next;
+    } while (p !== a);
+    return inside;
+  }
+  function splitPolygon(a, b) {
+    const a2 = createNode(a.i, a.x, a.y), b2 = createNode(b.i, b.x, b.y), an = a.next, bp = b.prev;
+    a.next = b;
+    b.prev = a;
+    a2.next = an;
+    an.prev = a2;
+    b2.next = a2;
+    a2.prev = b2;
+    bp.next = b2;
+    b2.prev = bp;
+    return b2;
+  }
+  function insertNode(i, x, y, last) {
+    const p = createNode(i, x, y);
+    if (!last) {
+      p.prev = p;
+      p.next = p;
+    } else {
+      p.next = last.next;
+      p.prev = last;
+      last.next.prev = p;
+      last.next = p;
+    }
+    return p;
+  }
+  function removeNode(p) {
+    p.next.prev = p.prev;
+    p.prev.next = p.next;
+    if (p.prevZ) p.prevZ.nextZ = p.nextZ;
+    if (p.nextZ) p.nextZ.prevZ = p.prevZ;
+  }
+  function createNode(i, x, y) {
+    return {
+      i,
+      // vertex index in coordinates array
+      x,
+      y,
+      // vertex coordinates
+      prev: null,
+      // previous and next vertex nodes in a polygon ring
+      next: null,
+      z: 0,
+      // z-order curve value
+      prevZ: null,
+      // previous and next nodes in z-order
+      nextZ: null,
+      steiner: false
+      // indicates whether this is a steiner point
+    };
+  }
+  function signedArea(data, start, end, dim) {
+    let sum = 0;
+    for (let i = start, j = end - dim; i < end; i += dim) {
+      sum += (data[j] - data[i]) * (data[i + 1] + data[j + 1]);
+      j = i;
+    }
+    return sum;
+  }
+  var Earcut = class {
+    /**
+     * Triangulates the given shape definition by returning an array of triangles.
+     *
+     * @param {Array<number>} data - An array with 2D points.
+     * @param {Array<number>} holeIndices - An array with indices defining holes.
+     * @param {number} [dim=2] - The number of coordinates per vertex in the input array.
+     * @return {Array<number>} An array representing the triangulated faces. Each face is defined by three consecutive numbers
+     * representing vertex indices.
+     */
+    static triangulate(data, holeIndices, dim = 2) {
+      return earcut(data, holeIndices, dim);
+    }
+  };
+  var ShapeUtils = class _ShapeUtils {
+    /**
+     * Calculate area of a ( 2D ) contour polygon.
+     *
+     * @param {Array<Vector2>} contour - An array of 2D points.
+     * @return {number} The area.
+     */
+    static area(contour) {
+      const n = contour.length;
+      let a = 0;
+      for (let p = n - 1, q = 0; q < n; p = q++) {
+        a += contour[p].x * contour[q].y - contour[q].x * contour[p].y;
+      }
+      return a * 0.5;
+    }
+    /**
+     * Returns `true` if the given contour uses a clockwise winding order.
+     *
+     * @param {Array<Vector2>} pts - An array of 2D points defining a polygon.
+     * @return {boolean} Whether the given contour uses a clockwise winding order or not.
+     */
+    static isClockWise(pts) {
+      return _ShapeUtils.area(pts) < 0;
+    }
+    /**
+     * Triangulates the given shape definition.
+     *
+     * @param {Array<Vector2>} contour - An array of 2D points defining the contour.
+     * @param {Array<Array<Vector2>>} holes - An array that holds arrays of 2D points defining the holes.
+     * @return {Array<Array<number>>} An array that holds for each face definition an array with three indices.
+     */
+    static triangulateShape(contour, holes) {
+      const vertices = [];
+      const holeIndices = [];
+      const faces = [];
+      removeDupEndPts(contour);
+      addContour(vertices, contour);
+      let holeIndex = contour.length;
+      holes.forEach(removeDupEndPts);
+      for (let i = 0; i < holes.length; i++) {
+        holeIndices.push(holeIndex);
+        holeIndex += holes[i].length;
+        addContour(vertices, holes[i]);
+      }
+      const triangles = Earcut.triangulate(vertices, holeIndices);
+      for (let i = 0; i < triangles.length; i += 3) {
+        faces.push(triangles.slice(i, i + 3));
+      }
+      return faces;
+    }
+  };
+  function removeDupEndPts(points) {
+    const l = points.length;
+    if (l > 2 && points[l - 1].equals(points[0])) {
+      points.pop();
+    }
+  }
+  function addContour(vertices, contour) {
+    for (let i = 0; i < contour.length; i++) {
+      vertices.push(contour[i].x);
+      vertices.push(contour[i].y);
+    }
+  }
+  var IcosahedronGeometry = class _IcosahedronGeometry extends PolyhedronGeometry {
+    /**
+     * Constructs a new icosahedron geometry.
+     *
+     * @param {number} [radius=1] - Radius of the icosahedron.
+     * @param {number} [detail=0] - Setting this to a value greater than `0` adds vertices making it no longer a icosahedron.
+     */
+    constructor(radius = 1, detail = 0) {
+      const t = (1 + Math.sqrt(5)) / 2;
+      const vertices = [
+        -1,
+        t,
+        0,
+        1,
+        t,
+        0,
+        -1,
+        -t,
+        0,
+        1,
+        -t,
+        0,
+        0,
+        -1,
+        t,
+        0,
+        1,
+        t,
+        0,
+        -1,
+        -t,
+        0,
+        1,
+        -t,
+        t,
+        0,
+        -1,
+        t,
+        0,
+        1,
+        -t,
+        0,
+        -1,
+        -t,
+        0,
+        1
+      ];
+      const indices = [
+        0,
+        11,
+        5,
+        0,
+        5,
+        1,
+        0,
+        1,
+        7,
+        0,
+        7,
+        10,
+        0,
+        10,
+        11,
+        1,
+        5,
+        9,
+        5,
+        11,
+        4,
+        11,
+        10,
+        2,
+        10,
+        7,
+        6,
+        7,
+        1,
+        8,
+        3,
+        9,
+        4,
+        3,
+        4,
+        2,
+        3,
+        2,
+        6,
+        3,
+        6,
+        8,
+        3,
+        8,
+        9,
+        4,
+        9,
+        5,
+        2,
+        4,
+        11,
+        6,
+        2,
+        10,
+        8,
+        6,
+        7,
+        9,
+        8,
+        1
+      ];
+      super(vertices, indices, radius, detail);
+      this.type = "IcosahedronGeometry";
+      this.parameters = {
+        radius,
+        detail
+      };
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {IcosahedronGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _IcosahedronGeometry(data.radius, data.detail);
+    }
+  };
   var OctahedronGeometry = class _OctahedronGeometry extends PolyhedronGeometry {
     /**
      * Constructs a new octahedron geometry.
@@ -16727,6 +18886,114 @@
       return new _RingGeometry(data.innerRadius, data.outerRadius, data.thetaSegments, data.phiSegments, data.thetaStart, data.thetaLength);
     }
   };
+  var ShapeGeometry = class _ShapeGeometry extends BufferGeometry {
+    /**
+     * Constructs a new shape geometry.
+     *
+     * @param {Shape|Array<Shape>} [shapes] - A shape or an array of shapes.
+     * @param {number} [curveSegments=12] - Number of segments per shape.
+     */
+    constructor(shapes = new Shape([new Vector2(0, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)]), curveSegments = 12) {
+      super();
+      this.type = "ShapeGeometry";
+      this.parameters = {
+        shapes,
+        curveSegments
+      };
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let groupStart = 0;
+      let groupCount = 0;
+      if (Array.isArray(shapes) === false) {
+        addShape(shapes);
+      } else {
+        for (let i = 0; i < shapes.length; i++) {
+          addShape(shapes[i]);
+          this.addGroup(groupStart, groupCount, i);
+          groupStart += groupCount;
+          groupCount = 0;
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function addShape(shape) {
+        const indexOffset = vertices.length / 3;
+        const points = shape.extractPoints(curveSegments);
+        let shapeVertices = points.shape;
+        const shapeHoles = points.holes;
+        if (ShapeUtils.isClockWise(shapeVertices) === false) {
+          shapeVertices = shapeVertices.reverse();
+        }
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          if (ShapeUtils.isClockWise(shapeHole) === true) {
+            shapeHoles[i] = shapeHole.reverse();
+          }
+        }
+        const faces = ShapeUtils.triangulateShape(shapeVertices, shapeHoles);
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          shapeVertices = shapeVertices.concat(shapeHole);
+        }
+        for (let i = 0, l = shapeVertices.length; i < l; i++) {
+          const vertex2 = shapeVertices[i];
+          vertices.push(vertex2.x, vertex2.y, 0);
+          normals.push(0, 0, 1);
+          uvs.push(vertex2.x, vertex2.y);
+        }
+        for (let i = 0, l = faces.length; i < l; i++) {
+          const face = faces[i];
+          const a = face[0] + indexOffset;
+          const b = face[1] + indexOffset;
+          const c = face[2] + indexOffset;
+          indices.push(a, b, c);
+          groupCount += 3;
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      const shapes = this.parameters.shapes;
+      return toJSON(shapes, data);
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @param {Array<Shape>} shapes - An array of shapes.
+     * @return {ShapeGeometry} A new instance.
+     */
+    static fromJSON(data, shapes) {
+      const geometryShapes = [];
+      for (let j = 0, jl = data.shapes.length; j < jl; j++) {
+        const shape = shapes[data.shapes[j]];
+        geometryShapes.push(shape);
+      }
+      return new _ShapeGeometry(geometryShapes, data.curveSegments);
+    }
+  };
+  function toJSON(shapes, data) {
+    data.shapes = [];
+    if (Array.isArray(shapes)) {
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        data.shapes.push(shape.uuid);
+      }
+    } else {
+      data.shapes.push(shapes.uuid);
+    }
+    return data;
+  }
   var SphereGeometry = class _SphereGeometry extends BufferGeometry {
     /**
      * Constructs a new sphere geometry.
@@ -16819,6 +19086,86 @@
       return new _SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
     }
   };
+  var TorusGeometry = class _TorusGeometry extends BufferGeometry {
+    /**
+     * Constructs a new torus geometry.
+     *
+     * @param {number} [radius=1] - Radius of the torus, from the center of the torus to the center of the tube.
+     * @param {number} [tube=0.4] - Radius of the tube. Must be smaller than `radius`.
+     * @param {number} [radialSegments=12] - The number of radial segments.
+     * @param {number} [tubularSegments=48] - The number of tubular segments.
+     * @param {number} [arc=Math.PI*2] - Central angle in radians.
+     * @param {number} [thetaStart=0] - Start of the tubular sweep in radians.
+     * @param {number} [thetaLength=Math.PI*2] - Length of the tubular sweep in radians.
+     */
+    constructor(radius = 1, tube = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI * 2) {
+      super();
+      this.type = "TorusGeometry";
+      this.parameters = {
+        radius,
+        tube,
+        radialSegments,
+        tubularSegments,
+        arc,
+        thetaStart,
+        thetaLength
+      };
+      radialSegments = Math.floor(radialSegments);
+      tubularSegments = Math.floor(tubularSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const center = new Vector3();
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      for (let j = 0; j <= radialSegments; j++) {
+        const v = thetaStart + j / radialSegments * thetaLength;
+        for (let i = 0; i <= tubularSegments; i++) {
+          const u = i / tubularSegments * arc;
+          vertex2.x = (radius + tube * Math.cos(v)) * Math.cos(u);
+          vertex2.y = (radius + tube * Math.cos(v)) * Math.sin(u);
+          vertex2.z = tube * Math.sin(v);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          center.x = radius * Math.cos(u);
+          center.y = radius * Math.sin(u);
+          normal.subVectors(vertex2, center).normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          uvs.push(i / tubularSegments);
+          uvs.push(j / radialSegments);
+        }
+      }
+      for (let j = 1; j <= radialSegments; j++) {
+        for (let i = 1; i <= tubularSegments; i++) {
+          const a = (tubularSegments + 1) * j + i - 1;
+          const b = (tubularSegments + 1) * (j - 1) + i - 1;
+          const c = (tubularSegments + 1) * (j - 1) + i;
+          const d = (tubularSegments + 1) * j + i;
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {TorusGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc, data.thetaStart, data.thetaLength);
+    }
+  };
   function cloneUniforms(src) {
     const dst = {};
     for (const u in src) {
@@ -16852,9 +19199,9 @@
   function mergeUniforms(uniforms) {
     const merged = {};
     for (let u = 0; u < uniforms.length; u++) {
-      const tmp = cloneUniforms(uniforms[u]);
-      for (const p in tmp) {
-        merged[p] = tmp[p];
+      const tmp3 = cloneUniforms(uniforms[u]);
+      for (const p in tmp3) {
+        merged[p] = tmp3[p];
       }
     }
     return merged;
@@ -19693,6 +22040,151 @@
     ]
   ];
   var _controlInterpolantsResultBuffer = new Float32Array(1);
+  var _matrix = /* @__PURE__ */ new Matrix4();
+  var Raycaster = class {
+    /**
+     * Constructs a new raycaster.
+     *
+     * @param {Vector3} origin - The origin vector where the ray casts from.
+     * @param {Vector3} direction - The (normalized) direction vector that gives direction to the ray.
+     * @param {number} [near=0] - All results returned are further away than near. Near can't be negative.
+     * @param {number} [far=Infinity] - All results returned are closer than far. Far can't be lower than near.
+     */
+    constructor(origin, direction, near = 0, far = Infinity) {
+      this.ray = new Ray(origin, direction);
+      this.near = near;
+      this.far = far;
+      this.camera = null;
+      this.layers = new Layers();
+      this.params = {
+        Mesh: {},
+        Line: { threshold: 1 },
+        LOD: {},
+        Points: { threshold: 1 },
+        Sprite: {}
+      };
+    }
+    /**
+     * Updates the ray with a new origin and direction by copying the values from the arguments.
+     *
+     * @param {Vector3} origin - The origin vector where the ray casts from.
+     * @param {Vector3} direction - The (normalized) direction vector that gives direction to the ray.
+     */
+    set(origin, direction) {
+      this.ray.set(origin, direction);
+    }
+    /**
+     * Uses the given coordinates and camera to compute a new origin and direction for the internal ray.
+     *
+     * @param {Vector2} coords - 2D coordinates of the mouse, in normalized device coordinates (NDC).
+     * X and Y components should be between `-1` and `1`.
+     * @param {Camera} camera - The camera from which the ray should originate.
+     */
+    setFromCamera(coords, camera) {
+      if (camera.isPerspectiveCamera) {
+        this.ray.origin.setFromMatrixPosition(camera.matrixWorld);
+        this.ray.direction.set(coords.x, coords.y, 0.5).unproject(camera).sub(this.ray.origin).normalize();
+        this.camera = camera;
+      } else if (camera.isOrthographicCamera) {
+        this.ray.origin.set(coords.x, coords.y, camera.projectionMatrix.elements[14]).unproject(camera);
+        this.ray.direction.set(0, 0, -1).transformDirection(camera.matrixWorld);
+        this.camera = camera;
+      } else {
+        error("Raycaster: Unsupported camera type: " + camera.type);
+      }
+    }
+    /**
+     * Uses the given WebXR controller to compute a new origin and direction for the internal ray.
+     *
+     * @param {WebXRController} controller - The controller to copy the position and direction from.
+     * @return {Raycaster} A reference to this raycaster.
+     */
+    setFromXRController(controller) {
+      _matrix.identity().extractRotation(controller.matrixWorld);
+      this.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      this.ray.direction.set(0, 0, -1).applyMatrix4(_matrix);
+      return this;
+    }
+    /**
+     * The intersection point of a raycaster intersection test.
+     * @typedef {Object} Raycaster~Intersection
+     * @property {number} distance - The distance from the ray's origin to the intersection point.
+     * @property {number} distanceToRay -  Some 3D objects e.g. {@link Points} provide the distance of the
+     * intersection to the nearest point on the ray. For other objects it will be `undefined`.
+     * @property {Vector3} point - The intersection point, in world coordinates.
+     * @property {Object} face - The face that has been intersected.
+     * @property {number} faceIndex - The face index.
+     * @property {Object3D} object - The 3D object that has been intersected.
+     * @property {Vector2} uv - U,V coordinates at point of intersection.
+     * @property {Vector2} uv1 - Second set of U,V coordinates at point of intersection.
+     * @property {Vector3} normal - Interpolated normal vector at point of intersection.
+     * @property {number} instanceId - The index number of the instance where the ray
+     * intersects the {@link InstancedMesh}.
+     * @property {number} batchId - The index number of the instance where the ray
+     * intersects the {@link BatchedMesh}.
+     */
+    /**
+     * Checks all intersection between the ray and the object with or without the
+     * descendants. Intersections are returned sorted by distance, closest first.
+     *
+     * `Raycaster` delegates to the `raycast()` method of the passed 3D object, when
+     * evaluating whether the ray intersects the object or not. This allows meshes to respond
+     * differently to ray casting than lines or points.
+     *
+     * Note that for meshes, faces must be pointed towards the origin of the ray in order
+     * to be detected; intersections of the ray passing through the back of a face will not
+     * be detected. To raycast against both faces of an object, you'll want to set  {@link Material#side}
+     * to `THREE.DoubleSide`.
+     *
+     * Note that a ray hitting a triangle mesh exactly along an edge shared by two faces may be
+     * reported by both faces, resulting in two coincident intersections (identical point and
+     * distance) in the returned array.
+     *
+     * @param {Object3D} object - The 3D object to check for intersection with the ray.
+     * @param {boolean} [recursive=true] - If set to `true`, it also checks all descendants.
+     * Otherwise it only checks intersection with the object.
+     * @param {Array<Raycaster~Intersection>} [intersects=[]] The target array that holds the result of the method.
+     * @return {Array<Raycaster~Intersection>} An array holding the intersection points.
+     */
+    intersectObject(object, recursive = true, intersects2 = []) {
+      intersect(object, this, intersects2, recursive);
+      intersects2.sort(ascSort);
+      return intersects2;
+    }
+    /**
+     * Checks all intersection between the ray and the objects with or without
+     * the descendants. Intersections are returned sorted by distance, closest first.
+     *
+     * @param {Array<Object3D>} objects - The 3D objects to check for intersection with the ray.
+     * @param {boolean} [recursive=true] - If set to `true`, it also checks all descendants.
+     * Otherwise it only checks intersection with the object.
+     * @param {Array<Raycaster~Intersection>} [intersects=[]] The target array that holds the result of the method.
+     * @return {Array<Raycaster~Intersection>} An array holding the intersection points.
+     */
+    intersectObjects(objects, recursive = true, intersects2 = []) {
+      for (let i = 0, l = objects.length; i < l; i++) {
+        intersect(objects[i], this, intersects2, recursive);
+      }
+      intersects2.sort(ascSort);
+      return intersects2;
+    }
+  };
+  function ascSort(a, b) {
+    return a.distance - b.distance;
+  }
+  function intersect(object, raycaster, intersects2, recursive) {
+    let propagate = true;
+    if (object.layers.test(raycaster.layers)) {
+      const result = object.raycast(raycaster, intersects2);
+      if (result === false) propagate = false;
+    }
+    if (propagate === true && recursive === true) {
+      const children = object.children;
+      for (let i = 0, l = children.length; i < l; i++) {
+        intersect(children[i], raycaster, intersects2, true);
+      }
+    }
+  }
   var _Matrix2 = class _Matrix2 {
     /**
      * Constructs a new 2x2 matrix. The arguments are supposed to be
@@ -31310,6 +33802,613 @@ void main() {
     return LANDSCAPES[id] ?? LANDSCAPES.sphere;
   }
 
+  // src/core/random.js
+  function splitmix32(seed) {
+    let s = seed >>> 0;
+    return () => {
+      s = s + 2654435769 >>> 0;
+      let z = s;
+      z = Math.imul(z ^ z >>> 16, 569420461);
+      z = Math.imul(z ^ z >>> 15, 1935289751);
+      return (z ^ z >>> 15) >>> 0;
+    };
+  }
+  function seedToInt(seed) {
+    if (typeof seed === "number" && Number.isFinite(seed)) return Math.trunc(seed) >>> 0;
+    let h = 2166136261;
+    for (const ch of String(seed ?? "42")) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+    return h >>> 0;
+  }
+  function createRandom(seed = 42) {
+    const mix2 = splitmix32(seedToInt(seed));
+    let a = mix2();
+    let b = mix2();
+    let c = mix2();
+    let d = mix2();
+    const next = () => {
+      const t = (a + b >>> 0) + d >>> 0;
+      d = d + 1 >>> 0;
+      a = b ^ b >>> 9;
+      b = c + (c << 3) >>> 0;
+      c = (c << 21 | c >>> 11) >>> 0;
+      c = c + t >>> 0;
+      return t / 4294967296;
+    };
+    for (let i = 0; i < 12; i++) next();
+    return {
+      next,
+      /** Bilangan real di [lo, hi). */
+      range: (lo, hi) => lo + (hi - lo) * next(),
+      /** Bilangan bulat di [lo, hi], keduanya termasuk. */
+      int: (lo, hi) => lo + Math.floor(next() * (hi - lo + 1))
+    };
+  }
+
+  // src/algorithms/firefly.js
+  var FA_DEFAULTS = {
+    populationSize: 20,
+    maxIterations: 30,
+    beta0: 1,
+    gamma: 2,
+    alpha: 0.25,
+    alphaDecay: 0.96
+  };
+  function attractiveness(beta0, gamma, r) {
+    return beta0 * Math.exp(-gamma * r * r);
+  }
+  var FAEngine = class {
+    constructor(config = {}) {
+      this.configure(config);
+    }
+    configure(config = {}) {
+      const c = { ...FA_DEFAULTS, ...config };
+      this.dim = c.dim ?? 2;
+      this.lo = c.lo ?? 0;
+      this.hi = c.hi ?? 1;
+      this.span = this.hi - this.lo;
+      this.fitnessFn = c.fitness;
+      this.populationSize = Math.max(2, Math.round(c.populationSize));
+      this.maxIterations = Math.max(1, Math.round(c.maxIterations));
+      this.beta0 = c.beta0;
+      this.gamma = c.gamma;
+      this.alpha0 = c.alpha;
+      this.alphaDecay = c.alphaDecay;
+      this.seed = c.seed ?? 42;
+      this.initial = c.initial || null;
+      this.reset();
+    }
+    clamp(v) {
+      return v < this.lo ? this.lo : v > this.hi ? this.hi : v;
+    }
+    reset() {
+      this.rng = createRandom(Number(this.seed) + 202);
+      this.iteration = 0;
+      this.alpha = this.alpha0;
+      this.evaluations = 0;
+      this.agents = [];
+      for (let i = 0; i < this.populationSize; i++) {
+        const x = this.initial && this.initial[i] ? this.initial[i].slice() : Array.from({ length: this.dim }, () => this.rng.range(this.lo, this.hi));
+        this.agents.push({
+          x,
+          px: x.slice(),
+          f: this.evalFitness(x),
+          glow: 0,
+          attractor: -1,
+          pull: 0,
+          stepFrom: x.slice(),
+          rank: 0
+        });
+      }
+      this.bestEver = null;
+      this.updateBest();
+      this.rankAgents();
+      this.history = [{ iteration: 0, bestFitness: this.bestEver.f }];
+      this.phase = "INIT";
+      this.phaseLabel = "Sebar kunang-kunang";
+      this.phaseDetail = `Menyebar ${this.populationSize} kunang-kunang secara acak di ruang pencarian.`;
+      this.done = false;
+      return this.getState();
+    }
+    evalFitness(x) {
+      this.evaluations++;
+      return this.fitnessFn(x);
+    }
+    updateBest() {
+      for (const a of this.agents) {
+        if (!this.bestEver || a.f < this.bestEver.f) this.bestEver = { x: a.x.slice(), f: a.f };
+      }
+    }
+    /** Peringkat 0 = paling terang. Glow dinormalkan 0..1 dari peringkat agar kecerahan terlihat jelas. */
+    rankAgents() {
+      const order = this.agents.map((_, i) => i).sort((a, b) => this.agents[a].f - this.agents[b].f);
+      order.forEach((idx, rank) => {
+        this.agents[idx].rank = rank;
+        this.agents[idx].glow = 1 - rank / Math.max(1, order.length - 1);
+      });
+      this.brightestIndex = order[0];
+    }
+    distance(a, b) {
+      let s = 0;
+      for (let d = 0; d < this.dim; d++) {
+        const diff = (a[d] - b[d]) / this.span;
+        s += diff * diff;
+      }
+      return Math.sqrt(s / this.dim);
+    }
+    step() {
+      if (this.done) return this.getState();
+      for (const a of this.agents) {
+        a.px = a.x.slice();
+        a.attractor = -1;
+        a.pull = 0;
+      }
+      if (this.phase === "INIT" || this.phase === "WALK") {
+        this.phase = "EVAL";
+        this.phaseLabel = "Ukur kecerahan";
+        this.rankAgents();
+        const best = this.agents[this.brightestIndex];
+        this.phaseDetail = `Kecerahan = kualitas solusi. Paling terang: f = ${best.f.toFixed(3)}.`;
+        return this.getState();
+      }
+      if (this.phase === "EVAL") {
+        this.phase = "MOVE";
+        this.phaseLabel = "Terbang ke yang lebih terang";
+        const snapshot = this.agents.map((a) => ({ x: a.x.slice(), f: a.f }));
+        let moves = 0;
+        for (let i = 0; i < this.agents.length; i++) {
+          const me = this.agents[i];
+          let strongest = 0;
+          for (let j = 0; j < snapshot.length; j++) {
+            if (snapshot[j].f < me.f) {
+              const r = this.distance(me.x, snapshot[j].x);
+              const beta = attractiveness(this.beta0, this.gamma, r);
+              for (let d = 0; d < this.dim; d++) me.x[d] += beta * (snapshot[j].x[d] - me.x[d]);
+              moves++;
+              if (beta > strongest) {
+                strongest = beta;
+                me.attractor = j;
+              }
+            }
+          }
+          me.pull = strongest;
+        }
+        this.phaseDetail = `${moves} tarikan terjadi. Makin jauh, makin lemah (\u03B2 = \u03B2\u2080\xB7e^(\u2212\u03B3r\xB2)).`;
+        return this.getState();
+      }
+      this.phase = "WALK";
+      this.phaseLabel = "Langkah acak kecil";
+      const stepSize = this.alpha * this.span;
+      for (const a of this.agents) {
+        a.stepFrom = a.x.slice();
+        for (let d = 0; d < this.dim; d++) {
+          a.x[d] = this.clamp(a.x[d] + stepSize * (this.rng.next() - 0.5));
+        }
+        a.f = this.evalFitness(a.x);
+      }
+      this.updateBest();
+      this.iteration++;
+      this.alpha *= this.alphaDecay;
+      this.history.push({ iteration: this.iteration, bestFitness: this.bestEver.f });
+      this.phaseDetail = `Iterasi ${this.iteration}: terbaik f = ${this.bestEver.f.toFixed(3)}. Langkah acak menyusut ke \u03B1 = ${this.alpha.toFixed(3)}.`;
+      if (this.iteration >= this.maxIterations) {
+        this.phase = "DONE";
+        this.phaseLabel = "Selesai";
+        this.done = true;
+        this.phaseDetail = `Selesai setelah ${this.iteration} iterasi dan ${this.evaluations} evaluasi. Terbaik f = ${this.bestEver.f.toFixed(4)}.`;
+      }
+      return this.getState();
+    }
+    /** Jalankan tahap sampai satu iterasi penuh selesai (dipakai simulasi cloud). */
+    runIteration() {
+      const target = this.iteration + 1;
+      let guard = 0;
+      while (!this.done && this.iteration < target && guard++ < 10) this.step();
+      return this.getState();
+    }
+    getState() {
+      return {
+        kind: "FA",
+        phase: this.phase,
+        phaseLabel: this.phaseLabel,
+        phaseDetail: this.phaseDetail,
+        iteration: this.iteration,
+        maxIterations: this.maxIterations,
+        evaluations: this.evaluations,
+        alpha: this.alpha,
+        agents: this.agents,
+        brightestIndex: this.brightestIndex,
+        best: this.bestEver ? { x: this.bestEver.x.slice(), fitness: this.bestEver.f } : null,
+        history: this.history,
+        done: this.done,
+        params: { beta0: this.beta0, gamma: this.gamma, alpha0: this.alpha0 }
+      };
+    }
+  };
+
+  // src/algorithms/bat.js
+  var BA_DEFAULTS = {
+    populationSize: 20,
+    maxIterations: 30,
+    fmin: 0,
+    fmax: 1.5,
+    loudness: 1,
+    pulseRate: 0.5,
+    alphaA: 0.9,
+    gammaR: 0.9,
+    localScale: 0.1
+  };
+  function loudnessAt(a0, alphaA, k) {
+    return a0 * Math.pow(alphaA, k);
+  }
+  function pulseRateAt(r0, gammaR, t) {
+    return r0 * (1 - Math.exp(-gammaR * t));
+  }
+  var BAEngine = class {
+    constructor(config = {}) {
+      this.configure(config);
+    }
+    configure(config = {}) {
+      const c = { ...BA_DEFAULTS, ...config };
+      this.dim = c.dim ?? 2;
+      this.lo = c.lo ?? 0;
+      this.hi = c.hi ?? 1;
+      this.span = this.hi - this.lo;
+      this.fitnessFn = c.fitness;
+      this.populationSize = Math.max(2, Math.round(c.populationSize));
+      this.maxIterations = Math.max(1, Math.round(c.maxIterations));
+      this.fmin = c.fmin;
+      this.fmax = c.fmax;
+      this.A0 = c.loudness;
+      this.r0 = c.pulseRate;
+      this.alphaA = c.alphaA;
+      this.gammaR = c.gammaR;
+      this.localScale = c.localScale;
+      this.seed = c.seed ?? 42;
+      this.initial = c.initial || null;
+      this.reset();
+    }
+    clamp(v) {
+      return v < this.lo ? this.lo : v > this.hi ? this.hi : v;
+    }
+    reset() {
+      this.rng = createRandom(Number(this.seed) + 101);
+      this.iteration = 0;
+      this.evaluations = 0;
+      this.agents = [];
+      for (let i = 0; i < this.populationSize; i++) {
+        const x = this.initial && this.initial[i] ? this.initial[i].slice() : Array.from({ length: this.dim }, () => this.rng.range(this.lo, this.hi));
+        this.agents.push({
+          x,
+          px: x.slice(),
+          v: new Array(this.dim).fill(0),
+          f: this.evalFitness(x),
+          A: this.A0,
+          r: 0,
+          freq: 0,
+          trial: null,
+          trialPrev: null,
+          trialF: null,
+          mode: null,
+          accepted: null
+        });
+      }
+      this.bestEver = null;
+      this.updateBest();
+      this.history = [{ iteration: 0, bestFitness: this.bestEver.f }];
+      this.phase = "INIT";
+      this.phaseLabel = "Sebar kelelawar";
+      this.phaseDetail = `Menyebar ${this.populationSize} kelelawar secara acak. Kenyaringan awal A = ${this.A0}.`;
+      this.done = false;
+      return this.getState();
+    }
+    evalFitness(x) {
+      this.evaluations++;
+      return this.fitnessFn(x);
+    }
+    updateBest() {
+      for (const a of this.agents) {
+        if (!this.bestEver || a.f < this.bestEver.f) this.bestEver = { x: a.x.slice(), f: a.f };
+      }
+    }
+    meanLoudness() {
+      return this.agents.reduce((s, a) => s + a.A, 0) / this.agents.length;
+    }
+    meanPulseRate() {
+      return this.agents.reduce((s, a) => s + a.r, 0) / this.agents.length;
+    }
+    step() {
+      if (this.done) return this.getState();
+      for (const a of this.agents) {
+        a.px = a.x.slice();
+        a.trialPrev = a.trial ? a.trial.slice() : null;
+      }
+      if (this.phase === "INIT" || this.phase === "ACCEPT") {
+        this.phase = "PULSE";
+        this.phaseLabel = "Pulsa: terbang menuju x*";
+        const best = this.bestEver.x;
+        for (const a of this.agents) {
+          a.freq = this.fmin + (this.fmax - this.fmin) * this.rng.next();
+          a.mode = "global";
+          a.accepted = null;
+          a.trialPrev = a.x.slice();
+          const trial = new Array(this.dim);
+          for (let d = 0; d < this.dim; d++) {
+            a.v[d] += (best[d] - a.x[d]) * a.freq;
+            const lim = 0.3 * this.span;
+            if (a.v[d] > lim) a.v[d] = lim;
+            if (a.v[d] < -lim) a.v[d] = -lim;
+            trial[d] = this.clamp(a.x[d] + a.v[d]);
+          }
+          a.trial = trial;
+          a.trialF = null;
+        }
+        this.phaseDetail = `Frekuensi acak f \u2208 [${this.fmin}, ${this.fmax}]. Posisi percobaan = posisi + kecepatan.`;
+        return this.getState();
+      }
+      if (this.phase === "PULSE") {
+        this.phase = "LOCAL";
+        this.phaseLabel = "Jelajah lokal di dekat x*";
+        const best = this.bestEver.x;
+        const meanA = this.meanLoudness();
+        let localCount = 0;
+        for (const a of this.agents) {
+          if (this.rng.next() > a.r) {
+            const trial = new Array(this.dim);
+            for (let d = 0; d < this.dim; d++) {
+              const eps = this.rng.range(-1, 1);
+              trial[d] = this.clamp(best[d] + eps * meanA * this.localScale * this.span);
+            }
+            a.trial = trial;
+            a.mode = "local";
+            localCount++;
+          }
+        }
+        for (const a of this.agents) a.trialF = this.evalFitness(a.trial);
+        this.phaseDetail = `${localCount} dari ${this.agents.length} kelelawar menjelajah lokal (rand > r). \u0100 = ${meanA.toFixed(2)}, r\u0304 = ${this.meanPulseRate().toFixed(2)}.`;
+        return this.getState();
+      }
+      this.phase = "ACCEPT";
+      this.phaseLabel = "Terima atau tolak";
+      this.iteration++;
+      let accepted = 0;
+      for (const a of this.agents) {
+        const ok = this.rng.next() < a.A && a.trialF < a.f;
+        a.accepted = ok;
+        if (ok) {
+          a.x = a.trial.slice();
+          a.f = a.trialF;
+          a.A *= this.alphaA;
+          a.r = pulseRateAt(this.r0, this.gammaR, this.iteration);
+          accepted++;
+        }
+      }
+      this.updateBest();
+      this.history.push({ iteration: this.iteration, bestFitness: this.bestEver.f });
+      this.phaseDetail = `${accepted} diterima, ${this.agents.length - accepted} ditolak. Terbaik f = ${this.bestEver.f.toFixed(3)}. \u0100 = ${this.meanLoudness().toFixed(2)}, r\u0304 = ${this.meanPulseRate().toFixed(2)}.`;
+      if (this.iteration >= this.maxIterations) {
+        this.phase = "DONE";
+        this.phaseLabel = "Selesai";
+        this.done = true;
+        this.phaseDetail = `Selesai setelah ${this.iteration} iterasi dan ${this.evaluations} evaluasi. Terbaik f = ${this.bestEver.f.toFixed(4)}.`;
+      }
+      return this.getState();
+    }
+    runIteration() {
+      const target = this.iteration + 1;
+      let guard = 0;
+      while (!this.done && this.iteration < target && guard++ < 10) this.step();
+      return this.getState();
+    }
+    getState() {
+      return {
+        kind: "BA",
+        phase: this.phase,
+        phaseLabel: this.phaseLabel,
+        phaseDetail: this.phaseDetail,
+        iteration: this.iteration,
+        maxIterations: this.maxIterations,
+        evaluations: this.evaluations,
+        agents: this.agents,
+        meanA: this.meanLoudness(),
+        meanR: this.meanPulseRate(),
+        best: this.bestEver ? { x: this.bestEver.x.slice(), fitness: this.bestEver.f } : null,
+        history: this.history,
+        done: this.done,
+        params: {
+          A0: this.A0,
+          r0: this.r0,
+          alphaA: this.alphaA,
+          gammaR: this.gammaR,
+          localRadius: this.meanLoudness() * this.localScale * this.span
+        }
+      };
+    }
+  };
+
+  // src/render/motion.js
+  var STAGE_W = 1920;
+  var STAGE_H = 1080;
+  var clamp01 = (v) => Math.min(1, Math.max(0, v));
+  var lerp2 = (a, b, t) => a + (b - a) * t;
+  var easeOut = (t) => 1 - (1 - t) ** 3;
+  var easeInOut = (t) => t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
+  var easeBack = (t) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
+  function seg(time, start, length, ease = easeInOut) {
+    return ease(clamp01((time - start) / Math.max(1e-6, length)));
+  }
+  function startCanvasLoop(canvas, draw, { calm = false, width = STAGE_W, height: height2 = STAGE_H } = {}) {
+    let frameId = 0;
+    let t0 = null;
+    let beatT0 = null;
+    let prev = null;
+    let beat = 0;
+    const tick = (now) => {
+      t0 ?? (t0 = now);
+      beatT0 ?? (beatT0 = now);
+      const box = canvas.getBoundingClientRect();
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      const bw = Math.max(10, Math.floor(box.width * ratio));
+      const bh = Math.max(10, Math.floor(box.height * ratio));
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+      }
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(bw / width, 0, 0, bh / height2, 0, 0);
+      const dt = prev === null ? 0 : Math.min(0.1, (now - prev) / 1e3);
+      prev = now;
+      draw(ctx, { t: calm ? 0 : (now - t0) / 1e3, bt: calm ? 60 : (now - beatT0) / 1e3, beat, dt });
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return {
+      setBeat(next) {
+        beat = next;
+        beatT0 = null;
+      },
+      stop() {
+        cancelAnimationFrame(frameId);
+        frameId = 0;
+      }
+    };
+  }
+  function fitCanvas(canvas) {
+    const box = canvas.getBoundingClientRect();
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(10, Math.floor(box.width));
+    const height2 = Math.max(10, Math.floor(box.height));
+    if (canvas.width !== Math.floor(width * ratio) || canvas.height !== Math.floor(height2 * ratio)) {
+      canvas.width = Math.floor(width * ratio);
+      canvas.height = Math.floor(height2 * ratio);
+    }
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    return { ctx, width, height: height2 };
+  }
+
+  // src/render/chart.js
+  function formatTick(val) {
+    if (val === 0) return "0";
+    if (val >= 100) return val.toFixed(0);
+    if (val >= 10) return val.toFixed(0);
+    if (val >= 1) return val.toFixed(1);
+    if (val >= 0.1) return val.toFixed(2);
+    return val.toExponential(0);
+  }
+  function renderConvergenceChart(canvas, seriesList, options = {}) {
+    if (!canvas) return;
+    const { ctx, width, height: height2 } = fitCanvas(canvas);
+    ctx.clearRect(0, 0, width, height2);
+    const u = Math.max(0.55, Math.min(1.5, Math.min(width / 610, height2 / 220)));
+    const padLeft = 64 * u;
+    const padRight = 70 * u;
+    const hasLegend = options.legend !== false && seriesList.length > 1;
+    const padTop = (hasLegend ? 50 : 22) * u;
+    const padBottom = 34 * u;
+    const plotW = Math.max(20, width - padLeft - padRight);
+    const plotH = Math.max(20, height2 - padTop - padBottom);
+    let maxIter = Math.max(10, options.maxIterations || 20);
+    let maxVal = 0;
+    let minVal = Infinity;
+    for (const s of seriesList) {
+      for (const pt of s.data) {
+        if (pt.iteration > maxIter) maxIter = pt.iteration;
+        if (pt.bestFitness > maxVal) maxVal = pt.bestFitness;
+        if (pt.bestFitness < minVal) minVal = pt.bestFitness;
+      }
+    }
+    const yMin = options.yMin ?? 0;
+    const yTop = options.yMax ?? (maxVal <= yMin + 1e-6 ? yMin + 1 : yMin + (maxVal - yMin) * 1.08);
+    const ySpan = Math.max(1e-9, yTop - yMin);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(169, 187, 214, 0.2)";
+    ctx.font = `600 ${16 * u}px "Red Hat Mono", "Manrope", monospace`;
+    ctx.fillStyle = "#a9bbd6";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i <= 2; i++) {
+      const ratio = i / 2;
+      const py2 = padTop + plotH - ratio * plotH;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, py2);
+      ctx.lineTo(padLeft + plotW, py2);
+      ctx.stroke();
+      ctx.fillText(formatTick(yMin + ratio * ySpan), padLeft - 10 * u, py2);
+    }
+    ctx.textAlign = "center";
+    for (let i = 0; i <= 4; i++) {
+      const iterVal = Math.round(i / 4 * maxIter);
+      ctx.fillText(`${iterVal}`, padLeft + iterVal / maxIter * plotW, padTop + plotH + 19 * u);
+    }
+    const labels = [];
+    for (const s of seriesList) {
+      if (!s.data || s.data.length === 0) continue;
+      const color = s.color || "#22d3ee";
+      const points = s.data.map((pt) => ({
+        px: padLeft + pt.iteration / maxIter * plotW,
+        py: padTop + plotH - Math.max(0, Math.min(1, (pt.bestFitness - yMin) / ySpan)) * plotH
+      }));
+      if (seriesList.length === 1 && points.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].px, padTop + plotH);
+        points.forEach((p) => ctx.lineTo(p.px, p.py));
+        ctx.lineTo(points[points.length - 1].px, padTop + plotH);
+        ctx.closePath();
+        ctx.fillStyle = s.fill || "rgba(34, 211, 238, 0.16)";
+        ctx.fill();
+      }
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = s.dashed ? 0 : 10 * u;
+      if (s.dashed) ctx.setLineDash([10 * u, 8 * u]);
+      ctx.beginPath();
+      points.forEach((p, idx) => {
+        if (idx === 0) ctx.moveTo(p.px, p.py);
+        else ctx.lineTo(p.px, p.py);
+      });
+      ctx.strokeStyle = color;
+      ctx.lineWidth = (s.width || 3.4) * u;
+      ctx.lineJoin = "round";
+      ctx.stroke();
+      ctx.restore();
+      const last = points[points.length - 1];
+      if (!s.dashed) {
+        ctx.beginPath();
+        ctx.arc(last.px, last.py, 6 * u, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+      labels.push({ y: last.py, x: last.px, color, text: s.data[s.data.length - 1].bestFitness });
+    }
+    labels.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labels.length; i++) {
+      if (labels[i].y - labels[i - 1].y < 20 * u) labels[i].y = labels[i - 1].y + 20 * u;
+    }
+    ctx.textAlign = "left";
+    ctx.font = `700 ${17 * u}px "Red Hat Mono", "Manrope", monospace`;
+    const dec = options.decimals ?? 2;
+    for (const l of labels) {
+      ctx.fillStyle = l.color;
+      ctx.fillText(l.text.toFixed(dec), Math.min(l.x + 12 * u, width - padRight + 6 * u), l.y);
+    }
+    if (hasLegend) {
+      ctx.font = `700 ${18 * u}px "Manrope", sans-serif`;
+      let lx = padLeft + 12 * u;
+      for (const s of seriesList) {
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(lx, 20 * u, 6 * u, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#f2f7ff";
+        ctx.textAlign = "left";
+        ctx.fillText(s.label, lx + 14 * u, 20 * u);
+        lx += ctx.measureText(s.label).width + 52 * u;
+      }
+    }
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+  }
+
   // src/ui/landscape3dModal.js
   var SVG_FIREFLY = `
 <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -31348,7 +34447,7 @@ void main() {
     </radialGradient>
   </defs>
 </svg>`;
-  var _Landscape3DModal_instances, renderDOM_fn, initThree_fn, createClouds_fn, buildTerrainChunks_fn, createRefinedChunkMesh_fn, createLeaderBeacon_fn, initCreatureMeshes_fn, buildFireflyCreature_fn, buildBatCreature_fn, initFXSystems_fn, triggerBatEcho_fn, resetSimulation_fn, stepSimulation_fn, to3D_fn, syncSwarmPositions_fn, startLoop_fn, stopLoop_fn, updateCameraPosition_fn, setCameraPreset_fn, onResize_fn, updateUI_fn, drawSparkline_fn, bindEvents_fn, updateLangLabels_fn;
+  var _Landscape3DModal_instances, renderDOM_fn, initThree_fn, createClouds_fn, buildTerrainChunks_fn, createFireflyRoom_fn, createBatCave_fn, markCameraOccluder_fn, updateCameraOcclusion_fn, createRefinedChunkMesh_fn, createLeaderBeacon_fn, initCreatureMeshes_fn, addSelectionRing_fn, buildFireflyCreature_fn, buildBatCreature_fn, initFXSystems_fn, triggerBatEcho_fn, resetSimulation_fn, stepSimulation_fn, to3D_fn, pickAgent_fn, selectAgent_fn, moveSelectedAgent_fn, finishAgentMove_fn, destroySelectedAgent_fn, syncSwarmPositions_fn, startLoop_fn2, stopLoop_fn2, updateCameraPosition_fn, setCameraPreset_fn, onResize_fn, updateUI_fn, drawConvergenceChart_fn, bindEvents_fn, updateLangLabels_fn;
   var Landscape3DModal = class {
     constructor() {
       __privateAdd(this, _Landscape3DModal_instances);
@@ -31365,6 +34464,9 @@ void main() {
       this.wireframe = false;
       this.isPlaying = false;
       this.speed = 1;
+      this.faPopulationSize = 20;
+      this.baPopulationSize = 20;
+      this.baFmax = 2;
       this.autoRotate = false;
       this.iteration = 0;
       this.maxIterations = 60;
@@ -31377,15 +34479,21 @@ void main() {
       this.clouds = [];
       this.faCreatures = [];
       this.baCreatures = [];
+      this.selectedAgent = null;
+      this.isMovingAgent = false;
+      this.agentDragDirty = false;
+      this.raycaster = new Raycaster();
+      this.pointerNdc = new Vector2();
+      this.groundPlane = new Plane(new Vector3(0, 1, 0), 0);
       this.faBestMarker = null;
       this.baBestMarker = null;
       this.sonarRings = [];
       this.sparkTrails = [];
       this.isDragging = false;
       this.prevMouse = { x: 0, y: 0 };
-      this.cameraAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 245 };
+      this.cameraAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 290 };
       this.targetAngle = { ...this.cameraAngle };
-      this.cameraTarget = new Vector3(0, -4, 0);
+      this.cameraTarget = new Vector3(0, 8, 0);
       this.historyFA = [];
       this.historyBA = [];
     }
@@ -31412,12 +34520,12 @@ void main() {
       });
       __privateMethod(this, _Landscape3DModal_instances, onResize_fn).call(this);
       __privateMethod(this, _Landscape3DModal_instances, resetSimulation_fn).call(this);
-      __privateMethod(this, _Landscape3DModal_instances, startLoop_fn).call(this);
+      __privateMethod(this, _Landscape3DModal_instances, startLoop_fn2).call(this);
       __privateMethod(this, _Landscape3DModal_instances, updateUI_fn).call(this);
     }
     close() {
       if (!this.modal) return;
-      __privateMethod(this, _Landscape3DModal_instances, stopLoop_fn).call(this);
+      __privateMethod(this, _Landscape3DModal_instances, stopLoop_fn2).call(this);
       this.isPlaying = false;
       this.modal.classList.add("hidden");
       sound.playClick();
@@ -31437,8 +34545,8 @@ void main() {
         <!-- HEADER KONTROL ATAS -->
         <header class="sky-header">
           <div class="sky-title-group">
-            <h2 class="sky-main-title" id="sky-title-text">Sky Optimizers 3D</h2>
-            <small class="sky-sub-title" id="sky-sub-text">Dua Cara Menemukan Lembah Terendah: Ordo Kunang-Kunang vs Legiun Kelelawar</small>
+            <h2 class="sky-main-title" id="sky-title-text">Firefly &amp; Bat 3D</h2>
+            <small class="sky-sub-title" id="sky-sub-text">Kunang-kunang mengejar lentera \xB7 Kelelawar memburu kristal putih di dalam gua</small>
           </div>
 
           <div class="sky-nav-controls">
@@ -31477,6 +34585,10 @@ void main() {
         <!-- AREA KANVAS 3D THREE.JS -->
         <div class="sky-canvas-container" id="sky-canvas-wrap">
           <canvas id="sky-webgl-canvas"></canvas>
+          <div class="sky-agent-tools" id="sky-agent-tools">
+            <span id="sky-agent-hint">Pilih unit, lalu seret untuk memindahkannya</span>
+            <button type="button" id="sky-agent-delete" hidden>\u{1FA93} Hancurkan unit</button>
+          </div>
 
           <!-- KARTU STATUS MENGAMBANG DENGAN AVATAR HEWAN ASLI -->
           <div class="sky-floating-badge badge-left" id="badge-fa">
@@ -31486,10 +34598,12 @@ void main() {
                 <b id="badge-fa-title">Ordo Kunang-Kunang</b>
                 <span class="badge-tag fa-tag">FA</span>
               </div>
+              <small class="bio-scene-label" id="scene-fa-label">RUANG LENTERA</small>
               <div class="badge-metrics">
                 <div><small id="lbl-fa-best">Terbaik:</small> <b id="fa-val-best">0.000</b></div>
                 <div><small id="lbl-fa-iter">Iterasi:</small> <b id="fa-val-iter">0 / 60</b></div>
                 <div><small id="lbl-fa-beta">Daya Tarik \u03B2:</small> <b id="fa-val-beta">1.00</b></div>
+                <div><small id="lbl-fa-count">Pasukan:</small> <b id="fa-val-count">${this.faPopulationSize}</b></div>
               </div>
             </div>
           </div>
@@ -31501,10 +34615,13 @@ void main() {
                 <b id="badge-ba-title">Legiun Kelelawar</b>
                 <span class="badge-tag ba-tag">BA</span>
               </div>
+              <small class="bio-scene-label" id="scene-ba-label">GUA KRISTAL PUTIH</small>
               <div class="badge-metrics">
                 <div><small id="lbl-ba-best">Terbaik:</small> <b id="ba-val-best">0.000</b></div>
                 <div><small id="lbl-ba-iter">Iterasi:</small> <b id="ba-val-iter">0 / 60</b></div>
                 <div><small id="lbl-ba-loud">Kelantangan A:</small> <b id="ba-val-loud">0.50</b></div>
+                <div><small id="lbl-ba-count">Pasukan:</small> <b id="ba-val-count">${this.baPopulationSize}</b></div>
+                <div><small id="lbl-ba-fmax">Frekuensi maks.:</small> <b id="ba-val-fmax">${this.baFmax.toFixed(1)}</b></div>
               </div>
             </div>
           </div>
@@ -31520,6 +34637,33 @@ void main() {
             </div>
             <span class="sky-round-label" id="sky-round-text">Iterasi 0 dari 60</span>
           </div>
+
+          <details class="sky-convergence-panel" id="sky-convergence-panel">
+            <summary class="sky-convergence-heading">
+              <div>
+                <h3 id="sky-convergence-title">Grafik konvergensi</h3>
+                <small id="sky-convergence-subtitle">Nilai fitness terbaik per iterasi \xB7 semakin rendah semakin baik</small>
+              </div>
+              <span class="sky-convergence-objective" id="sky-convergence-objective">Objektif: Rastrigin</span>
+            </summary>
+            <div class="sky-convergence-content">
+              <canvas id="sky-convergence-cv" aria-label="Grafik perbandingan konvergensi Firefly dan Bat"></canvas>
+              <div class="sky-convergence-stats">
+                <div class="sky-convergence-stat fa-stat">
+                  <b>\u2728 Firefly</b>
+                  <span><small id="lbl-fa-improvement">Perbaikan</small><strong id="fa-val-improvement">0.0000</strong></span>
+                  <span><small id="lbl-fa-position">Koordinat terbaik</small><strong id="fa-val-position">\u2014</strong></span>
+                  <span><small id="lbl-fa-evaluations">Evaluasi</small><strong id="fa-val-evaluations">0</strong></span>
+                </div>
+                <div class="sky-convergence-stat ba-stat">
+                  <b>\u{1F987} Bat</b>
+                  <span><small id="lbl-ba-improvement">Perbaikan</small><strong id="ba-val-improvement">0.0000</strong></span>
+                  <span><small id="lbl-ba-position">Koordinat terbaik</small><strong id="ba-val-position">\u2014</strong></span>
+                  <span><small id="lbl-ba-evaluations">Evaluasi</small><strong id="ba-val-evaluations">0</strong></span>
+                </div>
+              </div>
+            </div>
+          </details>
 
           <div class="sky-narrative-columns">
             <div class="narrative-col fa-col">
@@ -31539,15 +34683,27 @@ void main() {
               <button type="button" id="sky-act-step" class="sky-ctl-btn" title="Maju Satu Langkah (S)">\u23ED\uFE0F</button>
             </div>
 
-            <div class="sky-speed-slider">
-              <small id="sky-speed-txt">Kecepatan:</small>
-              <input type="range" id="sky-speed-input" min="0.5" max="3" step="0.5" value="1" />
-              <b id="sky-speed-label">1.0x</b>
-            </div>
-
-            <div class="sky-sparkline-wrap">
-              <small id="sky-spark-txt">Konvergensi:</small>
-              <canvas id="sky-sparkline-cv" width="220" height="34"></canvas>
+            <div class="sky-tuning-controls">
+              <label class="sky-range-control">
+                <span id="sky-speed-txt">Kecepatan</span>
+                <input type="range" id="sky-speed-input" min="0.5" max="3" step="0.5" value="1" />
+                <b id="sky-speed-label">1.0x</b>
+              </label>
+              <label class="sky-range-control">
+                <span id="sky-fa-population-txt">Kunang-kunang</span>
+                <input type="range" id="sky-fa-population-input" min="5" max="40" step="1" value="${this.faPopulationSize}" />
+                <b id="sky-fa-population-label">${this.faPopulationSize}</b>
+              </label>
+              <label class="sky-range-control">
+                <span id="sky-ba-population-txt">Kelelawar</span>
+                <input type="range" id="sky-ba-population-input" min="5" max="40" step="1" value="${this.baPopulationSize}" />
+                <b id="sky-ba-population-label">${this.baPopulationSize}</b>
+              </label>
+              <label class="sky-range-control">
+                <span id="sky-fmax-txt">Frekuensi maksimum f\u2098\u2090\u2093</span>
+                <input type="range" id="sky-fmax-input" min="0.5" max="5" step="0.1" value="${this.baFmax}" />
+                <b id="sky-fmax-label">${this.baFmax.toFixed(1)}</b>
+              </label>
             </div>
           </div>
         </footer>
@@ -31561,17 +34717,17 @@ void main() {
   initThree_fn = function() {
     if (!this.canvas) return;
     this.scene = new Scene();
-    this.scene.background = new Color(16183784);
+    this.scene.background = new Color(1055011);
     const aspect2 = 1780 / 620;
     this.camera = new PerspectiveCamera(30, aspect2, 1, 1500);
     __privateMethod(this, _Landscape3DModal_instances, updateCameraPosition_fn).call(this);
     this.renderer = new WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = PCFSoftShadowMap;
-    const ambientLight = new AmbientLight(16777215, 0.82);
+    this.renderer.shadowMap.type = PCFShadowMap;
+    const ambientLight = new AmbientLight(12174546, 0.62);
     this.scene.add(ambientLight);
-    const sunLight = new DirectionalLight(16775142, 1.25);
+    const sunLight = new DirectionalLight(16770737, 0.82);
     sunLight.position.set(140, 240, 160);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
@@ -31583,10 +34739,9 @@ void main() {
     sunLight.shadow.camera.top = 200;
     sunLight.shadow.camera.bottom = -200;
     this.scene.add(sunLight);
-    const fillLight = new DirectionalLight(12248829, 0.45);
+    const fillLight = new DirectionalLight(10139880, 0.24);
     fillLight.position.set(-160, 120, -120);
     this.scene.add(fillLight);
-    __privateMethod(this, _Landscape3DModal_instances, createClouds_fn).call(this);
   };
   createClouds_fn = function() {
     if (this.cloudGroup) this.scene.remove(this.cloudGroup);
@@ -31627,19 +34782,16 @@ void main() {
     this.cloudGroup = cloudGroup;
   };
   // ==========================================================================
-  // 5. PEMBUATAN MEDAN HALUS & KUE BATUAN SEDIMEN (NON-LOW-POLY)
+  // 5. RUANG LENTERA FIREFLY DAN GUA KRISTAL BAT
   // ==========================================================================
   buildTerrainChunks_fn = function() {
     if (this.faChunkGroup) this.scene.remove(this.faChunkGroup);
     if (this.baChunkGroup) this.scene.remove(this.baChunkGroup);
-    const obj = landscapeById(this.currentObjId);
-    const size = 80;
-    const segments = 84;
-    const baseDepth = 26;
-    this.faChunkGroup = __privateMethod(this, _Landscape3DModal_instances, createRefinedChunkMesh_fn).call(this, obj, size, segments, baseDepth, "grass");
+    this.cameraOccluders = [];
+    this.faChunkGroup = __privateMethod(this, _Landscape3DModal_instances, createFireflyRoom_fn).call(this);
     this.faChunkGroup.position.set(-68, 0, 0);
     this.scene.add(this.faChunkGroup);
-    this.baChunkGroup = __privateMethod(this, _Landscape3DModal_instances, createRefinedChunkMesh_fn).call(this, obj, size, segments, baseDepth, "canyon");
+    this.baChunkGroup = __privateMethod(this, _Landscape3DModal_instances, createBatCave_fn).call(this);
     this.baChunkGroup.position.set(68, 0, 0);
     this.scene.add(this.baChunkGroup);
     this.faBestMarker = __privateMethod(this, _Landscape3DModal_instances, createLeaderBeacon_fn).call(this, 440020);
@@ -31648,6 +34800,161 @@ void main() {
     this.baChunkGroup.add(this.baBestMarker);
     __privateMethod(this, _Landscape3DModal_instances, initCreatureMeshes_fn).call(this);
     __privateMethod(this, _Landscape3DModal_instances, initFXSystems_fn).call(this);
+  };
+  createFireflyRoom_fn = function() {
+    const room = new Group();
+    const makeMaterial = (color, roughness = 0.85, metalness = 0) => new MeshStandardMaterial({ color, roughness, metalness });
+    const addBox = (width, height2, depth, material, x, y, z) => {
+      const mesh = new Mesh(new BoxGeometry(width, height2, depth), material);
+      mesh.position.set(x, y, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      room.add(mesh);
+      return mesh;
+    };
+    const stone = makeMaterial(10190944);
+    const darkStone = makeMaterial(5784884);
+    const wood = makeMaterial(3745815);
+    const gold = makeMaterial(13736761, 0.34, 0.55);
+    const floor = makeMaterial(9203786);
+    addBox(92, 2, 92, floor, 0, -1, 0);
+    const wallHeight = 28;
+    __privateMethod(this, _Landscape3DModal_instances, markCameraOccluder_fn).call(this, addBox(92, wallHeight, 5, stone, 0, wallHeight / 2, -44));
+    __privateMethod(this, _Landscape3DModal_instances, markCameraOccluder_fn).call(this, addBox(5, wallHeight, 92, stone, -44, wallHeight / 2, 0));
+    __privateMethod(this, _Landscape3DModal_instances, markCameraOccluder_fn).call(this, addBox(5, wallHeight, 92, stone, 44, wallHeight / 2, 0));
+    for (let x = -36; x <= 36; x += 12) {
+      addBox(0.35, 0.16, 86, darkStone, x, 0.08, 0);
+    }
+    for (let z = -36; z <= 36; z += 12) {
+      addBox(86, 0.16, 0.35, darkStone, 0, 0.08, z);
+    }
+    [-39, 39].forEach((x) => {
+      [-39, -15, 15, 39].forEach((z) => {
+        __privateMethod(this, _Landscape3DModal_instances, markCameraOccluder_fn).call(this, addBox(5, 30, 5, darkStone, x, 14, z));
+        addBox(7, 2, 7, gold, x, 29, z);
+      });
+    });
+    [-32, 0, 32].forEach((z) => addBox(88, 1.5, 3, wood, 0, 28, z));
+    addBox(27, 0.45, 31, makeMaterial(7160613), 0, 0.2, 8);
+    const lantern = new Group();
+    const chain = new Mesh(new CylinderGeometry(0.12, 0.12, 7, 8), wood);
+    chain.position.y = 3.5;
+    lantern.add(chain);
+    const glowMaterial = new MeshStandardMaterial({
+      color: 16770458,
+      emissive: 16758062,
+      emissiveIntensity: 2.2,
+      roughness: 0.18
+    });
+    const glow = new Mesh(new SphereGeometry(3.1, 16, 12), glowMaterial);
+    glow.position.y = -1.5;
+    lantern.add(glow);
+    const cage = new Mesh(new OctahedronGeometry(4.5, 0), gold);
+    cage.position.y = -1.5;
+    cage.scale.y = 1.35;
+    lantern.add(cage);
+    const top = new Mesh(new ConeGeometry(3.2, 2.2, 8), gold);
+    top.position.y = 2;
+    lantern.add(top);
+    const bottom = new Mesh(new ConeGeometry(3.2, 2.2, 8), gold);
+    bottom.rotation.z = Math.PI;
+    bottom.position.y = -5;
+    lantern.add(bottom);
+    const lanternLight = new PointLight(16760134, 18, 110, 1.5);
+    lanternLight.position.y = -1.5;
+    lantern.add(lanternLight);
+    lantern.position.set(0, 24, 0);
+    room.add(lantern);
+    room.userData.lanternLight = lanternLight;
+    return room;
+  };
+  createBatCave_fn = function() {
+    const cave = new Group();
+    const stoneMaterials = [4674146, 5660782, 6775658, 3752785].map(
+      (color) => new MeshStandardMaterial({ color, roughness: 0.96 })
+    );
+    const addRock = (x, y, z, scale, materialIndex = 0) => {
+      const rock = new Mesh(new DodecahedronGeometry(1, 0), stoneMaterials[materialIndex]);
+      rock.position.set(x, y, z);
+      rock.scale.set(scale[0], scale[1], scale[2]);
+      rock.rotation.set(x * 0.03, y * 0.07, z * 0.025);
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      cave.add(rock);
+      __privateMethod(this, _Landscape3DModal_instances, markCameraOccluder_fn).call(this, rock);
+    };
+    const floorMaterial = new MeshStandardMaterial({ color: 4605777, roughness: 0.94 });
+    const floor = new Mesh(new BoxGeometry(96, 3, 92), floorMaterial);
+    floor.position.y = -1.5;
+    floor.receiveShadow = true;
+    cave.add(floor);
+    for (let x = -42; x <= 42; x += 12) {
+      addRock(x, 12 + (x + 42) % 3 * 2, -43, [9, 17, 8], Math.abs(x) % 4);
+      addRock(x + 4, 27, -29, [10, 8, 13], (Math.abs(x) + 1) % 4);
+    }
+    for (let z = -32; z <= 36; z += 14) {
+      addRock(-45, 13, z, [9, 17, 11], Math.abs(z) % 4);
+      addRock(45, 13, z, [9, 17, 11], (Math.abs(z) + 2) % 4);
+    }
+    const stalactiteMaterial = stoneMaterials[2];
+    [-34, -20, 20, 34].forEach((x) => {
+      [-28, -5, 19].forEach((z) => {
+        const height2 = 8 + (x + z + 100) % 4 * 2;
+        const stalactite = new Mesh(new ConeGeometry(3.2, height2, 6), stalactiteMaterial);
+        stalactite.rotation.z = Math.PI;
+        stalactite.position.set(x, 31 - height2 / 2, z);
+        stalactite.castShadow = true;
+        cave.add(stalactite);
+        __privateMethod(this, _Landscape3DModal_instances, markCameraOccluder_fn).call(this, stalactite);
+      });
+    });
+    const crystalBase = new Mesh(
+      new CylinderGeometry(7, 9, 2, 7),
+      new MeshStandardMaterial({ color: 3423047, roughness: 0.72 })
+    );
+    crystalBase.position.set(0, 0.5, -8);
+    cave.add(crystalBase);
+    const crystalMaterial = new MeshStandardMaterial({
+      color: 16187391,
+      emissive: 14219263,
+      emissiveIntensity: 3.4,
+      roughness: 0.16,
+      metalness: 0.18
+    });
+    [
+      { x: 0, y: 8, z: -8, sx: 1.8, sy: 3.4, sz: 1.6 },
+      { x: -4.8, y: 5, z: -6.5, sx: 1, sy: 2.5, sz: 1 },
+      { x: 4.5, y: 5.5, z: -9.5, sx: 0.95, sy: 2.8, sz: 1 }
+    ].forEach((part) => {
+      const crystal = new Mesh(new OctahedronGeometry(2.4, 0), crystalMaterial);
+      crystal.position.set(part.x, part.y, part.z);
+      crystal.scale.set(part.sx, part.sy, part.sz);
+      crystal.rotation.z = part.x * 0.09;
+      cave.add(crystal);
+    });
+    const crystalLight = new PointLight(14284799, 52, 140, 1.7);
+    crystalLight.position.set(0, 8, -8);
+    cave.add(crystalLight);
+    cave.userData.crystalLight = crystalLight;
+    return cave;
+  };
+  markCameraOccluder_fn = function(mesh) {
+    mesh.material = mesh.material.clone();
+    this.cameraOccluders.push({
+      material: mesh.material,
+      opacity: mesh.material.opacity,
+      transparent: mesh.material.transparent,
+      depthWrite: mesh.material.depthWrite
+    });
+  };
+  updateCameraOcclusion_fn = function() {
+    const fade = MathUtils.clamp((240 - this.cameraAngle.radius) / 150, 0, 0.84);
+    this.cameraOccluders?.forEach((item) => {
+      const opacity = item.opacity * (1 - fade);
+      item.material.opacity = opacity;
+      item.material.transparent = fade > 0;
+      item.material.depthWrite = fade === 0 ? item.depthWrite : false;
+    });
   };
   createRefinedChunkMesh_fn = function(obj, size, segments, baseDepth, biome = "grass") {
     const group = new Group();
@@ -31812,153 +35119,352 @@ void main() {
   initCreatureMeshes_fn = function() {
     this.faCreatures = [];
     this.baCreatures = [];
-    for (let i = 0; i < 20; i++) {
+    this.selectedAgent = null;
+    for (let i = 0; i < this.faPopulationSize; i++) {
       const m = __privateMethod(this, _Landscape3DModal_instances, buildFireflyCreature_fn).call(this, i);
+      m.userData.agentType = "fa";
+      m.userData.agentIndex = i;
+      __privateMethod(this, _Landscape3DModal_instances, addSelectionRing_fn).call(this, m, 440020);
       this.faChunkGroup.add(m);
       this.faCreatures.push(m);
     }
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < this.baPopulationSize; i++) {
       const m = __privateMethod(this, _Landscape3DModal_instances, buildBatCreature_fn).call(this, i);
+      m.userData.agentType = "ba";
+      m.userData.agentIndex = i;
+      __privateMethod(this, _Landscape3DModal_instances, addSelectionRing_fn).call(this, m, 11032055);
       this.baChunkGroup.add(m);
       this.baCreatures.push(m);
     }
+    __privateMethod(this, _Landscape3DModal_instances, selectAgent_fn).call(this, null);
+  };
+  addSelectionRing_fn = function(creature, color) {
+    const geometry = new RingGeometry(1.7, 2.3, 24);
+    geometry.rotateX(-Math.PI / 2);
+    const material = new MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      side: DoubleSide
+    });
+    const ring2 = new Mesh(geometry, material);
+    ring2.position.y = -1.7;
+    ring2.visible = false;
+    creature.add(ring2);
+    creature.userData.selectionRing = ring2;
+    const hitbox = new Mesh(
+      new SphereGeometry(4.2, 8, 6),
+      new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    hitbox.position.y = -0.5;
+    creature.add(hitbox);
   };
   buildFireflyCreature_fn = function(index) {
     const group = new Group();
-    const headGeom = new SphereGeometry(0.55, 10, 10);
-    const headMat = new MeshStandardMaterial({ color: 1841431, roughness: 0.3 });
-    const head = new Mesh(headGeom, headMat);
-    head.position.set(0, 0, 1.05);
-    group.add(head);
-    const antMat = new MeshBasicMaterial({ color: 16436245 });
-    [-0.24, 0.24].forEach((xOff) => {
-      const antGeom = new CylinderGeometry(0.04, 0.04, 0.75, 6);
-      antGeom.rotateX(Math.PI / 4);
-      const ant = new Mesh(antGeom, antMat);
-      ant.position.set(xOff, 0.35, 1.35);
-      group.add(ant);
+    const shellMat = new MeshStandardMaterial({
+      color: 6308134,
+      roughness: 0.8,
+      flatShading: true
     });
-    const thoraxGeom = new CapsuleGeometry(0.65, 0.5, 8, 8);
-    thoraxGeom.rotateX(Math.PI / 2);
-    const thoraxMat = new MeshStandardMaterial({ color: 7877903, roughness: 0.4, metalness: 0.2 });
-    const thorax = new Mesh(thoraxGeom, thoraxMat);
-    thorax.position.set(0, 0, 0.3);
+    const headMat = new MeshStandardMaterial({
+      color: 3286302,
+      roughness: 0.8,
+      flatShading: true
+    });
+    const thorax = new Mesh(new IcosahedronGeometry(0.72, 0), shellMat);
+    thorax.scale.set(0.8, 0.72, 1.25);
+    thorax.position.set(0, 0, 0.15);
     group.add(thorax);
-    const bulbGeom = new SphereGeometry(0.85, 14, 14);
+    const head = new Mesh(new IcosahedronGeometry(0.5, 0), headMat);
+    head.position.set(0, 0.05, 1.05);
+    group.add(head);
+    const eyeMat = new MeshBasicMaterial({ color: 723208 });
+    [-0.28, 0.28].forEach((x) => {
+      const eye = new Mesh(new IcosahedronGeometry(0.11, 0), eyeMat);
+      eye.position.set(x, 0.12, 1.43);
+      group.add(eye);
+    });
+    const antennaMat = new MeshStandardMaterial({ color: 3417370, flatShading: true });
+    [-0.2, 0.2].forEach((x, i) => {
+      const antenna = new Mesh(new ConeGeometry(0.07, 0.74, 4), antennaMat);
+      antenna.position.set(x, 0.58, 1.22);
+      antenna.rotation.z = i === 0 ? 0.28 : -0.28;
+      antenna.rotation.x = Math.PI / 7;
+      group.add(antenna);
+    });
+    const bulbGeom = new IcosahedronGeometry(0.9, 1);
     const bulbMat = new MeshStandardMaterial({
-      color: 16707722,
-      emissive: 16436245,
-      emissiveIntensity: 1.25,
-      roughness: 0.2
+      color: 16770138,
+      emissive: 16766464,
+      emissiveIntensity: 1.5,
+      roughness: 0.35,
+      flatShading: true
     });
     const bulb = new Mesh(bulbGeom, bulbMat);
-    bulb.position.set(0, -0.1, -0.9);
+    bulb.scale.set(0.88, 0.82, 1.1);
+    bulb.position.set(0, -0.18, -1.05);
     group.add(bulb);
     group.userData.bulb = bulb;
-    const light = new PointLight(16436245, 0.75, 14);
-    light.position.set(0, -0.2, -0.9);
+    const light = new PointLight(16767037, 1.05, 18);
+    light.position.set(0, -0.2, -1.05);
     group.add(light);
     group.userData.light = light;
-    const wingGeom = new PlaneGeometry(1.5, 0.7);
     const wingMat = new MeshStandardMaterial({
-      color: 16707722,
+      color: 11967337,
       transparent: true,
-      opacity: 0.68,
+      opacity: 0.76,
       side: DoubleSide,
-      roughness: 0.2
+      roughness: 0.9,
+      flatShading: true
     });
-    const wingL = new Mesh(wingGeom, wingMat);
-    wingL.position.set(-0.7, 0.3, 0.1);
-    wingL.rotation.x = -Math.PI / 2;
+    const makeWing = (side) => {
+      const geometry = new BufferGeometry();
+      geometry.setAttribute(
+        "position",
+        new Float32BufferAttribute([
+          0,
+          0,
+          0,
+          side * 1.25,
+          0.98,
+          0,
+          side * 2.25,
+          0.38,
+          0,
+          0,
+          0,
+          0,
+          side * 2.25,
+          0.38,
+          0,
+          side * 1.7,
+          -0.62,
+          0
+        ], 3)
+      );
+      geometry.computeVertexNormals();
+      return new Mesh(geometry, wingMat);
+    };
+    const wingL = makeWing(-1);
+    wingL.position.set(-0.28, 0.25, 0.18);
     group.add(wingL);
-    const wingR = new Mesh(wingGeom, wingMat);
-    wingR.position.set(0.7, 0.3, 0.1);
-    wingR.rotation.x = -Math.PI / 2;
+    const wingR = makeWing(1);
+    wingR.position.set(0.28, 0.25, 0.18);
     group.add(wingR);
     group.userData.wingLeft = wingL;
     group.userData.wingRight = wingR;
     group.userData.animOffset = index * 0.7;
+    const crown = new Group();
+    const crownMat = new MeshStandardMaterial({
+      color: 16766033,
+      emissive: 9063176,
+      emissiveIntensity: 0.45,
+      metalness: 0.68,
+      roughness: 0.28
+    });
+    crown.add(new Mesh(new CylinderGeometry(0.35, 0.42, 0.14, 7), crownMat));
+    for (let point = 0; point < 5; point++) {
+      const spike = new Mesh(new ConeGeometry(0.095, 0.4, 4), crownMat);
+      spike.position.set((point - 2) * 0.17, 0.22, 0);
+      crown.add(spike);
+    }
+    crown.position.set(0, 1.65, 0.1);
+    crown.visible = false;
+    group.add(crown);
+    const badgeCanvas = document.createElement("canvas");
+    badgeCanvas.width = 256;
+    badgeCanvas.height = 64;
+    const badgeContext = badgeCanvas.getContext("2d");
+    if (badgeContext) {
+      badgeContext.fillStyle = "rgba(24, 17, 44, 0.9)";
+      badgeContext.strokeStyle = "#facc15";
+      badgeContext.lineWidth = 4;
+      badgeContext.beginPath();
+      badgeContext.roundRect(4, 4, 248, 56, 20);
+      badgeContext.fill();
+      badgeContext.stroke();
+      badgeContext.fillStyle = "#fff";
+      badgeContext.font = "bold 28px sans-serif";
+      badgeContext.textAlign = "center";
+      badgeContext.textBaseline = "middle";
+      badgeContext.fillText(`FIREFLY ${index + 1}`, 128, 33);
+    }
+    const badge = new Sprite(new SpriteMaterial({
+      map: new CanvasTexture(badgeCanvas),
+      transparent: true,
+      depthTest: false
+    }));
+    badge.scale.set(3.3, 0.82, 1);
+    badge.position.set(0, 2.85, 0.12);
+    badge.visible = false;
+    group.add(badge);
+    group.userData.alphaCrown = crown;
+    group.userData.alphaBadge = badge;
     return group;
   };
   buildBatCreature_fn = function(index) {
     const group = new Group();
-    const bodyGeom = new CapsuleGeometry(0.75, 1.1, 8, 8);
-    bodyGeom.rotateX(Math.PI / 2);
-    const bodyMat = new MeshStandardMaterial({ color: 3018853, roughness: 0.7, metalness: 0.1 });
-    const body = new Mesh(bodyGeom, bodyMat);
+    const bodyMat = new MeshStandardMaterial({ color: 9207766, roughness: 0.48, metalness: 0.08 });
+    const body = new Mesh(new SphereGeometry(0.9, 14, 12), bodyMat);
+    body.scale.set(0.92, 1.12, 0.9);
+    body.position.y = 0.1;
     group.add(body);
-    const headGeom = new SphereGeometry(0.62, 10, 10);
-    const headMat = new MeshStandardMaterial({ color: 3868516, roughness: 0.6 });
-    const head = new Mesh(headGeom, headMat);
-    head.position.set(0, 0.15, 1);
+    const belly = new Mesh(
+      new SphereGeometry(0.58, 12, 10),
+      new MeshStandardMaterial({ color: 14736636, roughness: 0.62 })
+    );
+    belly.scale.set(0.84, 0.92, 0.38);
+    belly.position.set(0, -0.08, 0.69);
+    group.add(belly);
+    const head = new Mesh(
+      new SphereGeometry(0.69, 14, 12),
+      new MeshStandardMaterial({ color: 10194400, roughness: 0.44 })
+    );
+    head.position.set(0, 0.82, 0.44);
     group.add(head);
-    const snoutGeom = new ConeGeometry(0.28, 0.45, 6);
-    snoutGeom.rotateX(Math.PI / 2);
-    const snout = new Mesh(snoutGeom, headMat);
-    snout.position.set(0, 0.05, 1.5);
-    group.add(snout);
-    const earMat = new MeshStandardMaterial({ color: 12616956, roughness: 0.5 });
-    [-0.32, 0.32].forEach((xOff, i) => {
-      const earGeom = new ConeGeometry(0.3, 0.9, 4);
-      earGeom.scale(0.5, 1, 1);
-      const ear = new Mesh(earGeom, earMat);
-      ear.position.set(xOff, 0.65, 0.9);
-      ear.rotation.z = i === 0 ? 0.25 : -0.25;
+    const earOuter = new MeshStandardMaterial({ color: 8943822, side: DoubleSide, roughness: 0.52 });
+    const earInner = new MeshBasicMaterial({ color: 16020150, side: DoubleSide });
+    [-1, 1].forEach((side) => {
+      const earShape = new Shape();
+      earShape.moveTo(0, 0);
+      earShape.quadraticCurveTo(side * 0.06, 0.72, side * 0.42, 1.05);
+      earShape.quadraticCurveTo(side * 0.5, 0.36, side * 0.24, 0.06);
+      earShape.closePath();
+      const ear = new Group();
+      ear.add(new Mesh(new ShapeGeometry(earShape), earOuter));
+      const inner = new Mesh(new ShapeGeometry(earShape), earInner);
+      inner.scale.set(0.58, 0.62, 1);
+      inner.position.set(side * 0.06, 0.12, 0.025);
+      ear.add(inner);
+      ear.position.set(side * 0.43, 1.12, 0.28);
+      ear.rotation.z = side * -0.22;
       group.add(ear);
     });
-    const makeBatWing = (isLeft) => {
-      const wGroup = new Group();
-      const geom = new BufferGeometry();
-      const s = isLeft ? -1 : 1;
-      const verts = new Float32Array([
-        0,
-        0,
-        0.3,
-        s * 2.2,
-        0.2,
-        0.8,
-        s * 1.6,
-        -0.1,
-        -0.6,
-        s * 2.2,
-        0.2,
-        0.8,
-        s * 3.6,
-        0.1,
-        0.2,
-        s * 2.9,
-        -0.1,
-        -0.9,
-        s * 2.2,
-        0.2,
-        0.8,
-        s * 2.9,
-        -0.1,
-        -0.9,
-        s * 1.6,
-        -0.1,
-        -0.6
-      ]);
-      geom.setAttribute("position", new BufferAttribute(verts, 3));
-      geom.computeVertexNormals();
-      const wMat = new MeshStandardMaterial({
-        color: 4988309,
-        roughness: 0.55,
-        side: DoubleSide
-      });
-      const mesh = new Mesh(geom, wMat);
-      wGroup.add(mesh);
-      return wGroup;
+    const eyeSocket = new MeshBasicMaterial({ color: 1512492 });
+    const irisMat = new MeshBasicMaterial({ color: 6936831 });
+    const glintMat = new MeshBasicMaterial({ color: 16777215 });
+    [-1, 1].forEach((side) => {
+      const eye = new Group();
+      const socket = new Mesh(new SphereGeometry(0.19, 10, 8), eyeSocket);
+      socket.scale.set(0.82, 1.12, 0.5);
+      eye.add(socket);
+      const iris = new Mesh(new SphereGeometry(0.12, 8, 8), irisMat);
+      iris.position.set(0.015, 0, 0.08);
+      eye.add(iris);
+      const glint = new Mesh(new SphereGeometry(0.045, 6, 6), glintMat);
+      glint.position.set(-0.025, 0.045, 0.15);
+      eye.add(glint);
+      eye.position.set(side * 0.28, 0.84, 1);
+      group.add(eye);
+      const blush = new Mesh(
+        new SphereGeometry(0.14, 8, 6),
+        new MeshBasicMaterial({ color: 16020150, transparent: true, opacity: 0.72 })
+      );
+      blush.scale.set(1.2, 0.62, 0.35);
+      blush.position.set(side * 0.48, 0.55, 0.94);
+      group.add(blush);
+    });
+    const mouth = new Mesh(
+      new TorusGeometry(0.105, 0.018, 5, 12, Math.PI),
+      new MeshBasicMaterial({ color: 2366773 })
+    );
+    mouth.position.set(0, 0.47, 1.06);
+    mouth.rotation.x = -Math.PI / 8;
+    group.add(mouth);
+    const wingMats = [];
+    const makeBatWing = (side) => {
+      const pivot = new Group();
+      const shape = new Shape();
+      shape.moveTo(0, 0);
+      shape.quadraticCurveTo(side * 0.9, 0.95, side * 1.9, 0.68);
+      shape.quadraticCurveTo(side * 1.62, 0.18, side * 1.48, -0.56);
+      shape.quadraticCurveTo(side * 1.13, -0.16, side * 0.88, -0.54);
+      shape.quadraticCurveTo(side * 0.4, -0.13, 0, -0.35);
+      shape.closePath();
+      const membrane = new Mesh(
+        new ShapeGeometry(shape),
+        new MeshStandardMaterial({
+          color: 6247608,
+          roughness: 0.62,
+          side: DoubleSide
+        })
+      );
+      wingMats.push(membrane.material);
+      pivot.add(membrane);
+      const arm = new Mesh(
+        new CylinderGeometry(0.055, 0.035, 1.65, 6),
+        new MeshStandardMaterial({ color: 3353700, roughness: 0.65 })
+      );
+      arm.rotation.z = side * Math.PI / 3;
+      arm.position.set(side * 0.72, 0.3, 0.025);
+      pivot.add(arm);
+      pivot.position.set(side * 0.5, 0.34, 0.08);
+      group.add(pivot);
+      return pivot;
     };
-    const wingL = makeBatWing(true);
-    wingL.position.set(-0.5, 0.1, 0.2);
-    group.add(wingL);
-    const wingR = makeBatWing(false);
-    wingR.position.set(0.5, 0.1, 0.2);
-    group.add(wingR);
+    const wingL = makeBatWing(-1);
+    const wingR = makeBatWing(1);
+    const crown = new Group();
+    const crownGold = new MeshStandardMaterial({
+      color: 16766033,
+      emissive: 9063176,
+      emissiveIntensity: 0.5,
+      metalness: 0.68,
+      roughness: 0.28
+    });
+    const crownBase = new Mesh(new CylinderGeometry(0.38, 0.46, 0.16, 7), crownGold);
+    crown.add(crownBase);
+    for (let point = 0; point < 5; point++) {
+      const spike = new Mesh(new ConeGeometry(0.11, 0.48, 4), crownGold);
+      const angle = (point / 4 - 0.5) * Math.PI * 0.78;
+      spike.position.set(Math.sin(angle) * 0.34, 0.25, Math.cos(angle) * 0.12);
+      crown.add(spike);
+    }
+    const jewel = new Mesh(
+      new OctahedronGeometry(0.13, 0),
+      new MeshStandardMaterial({ color: 16020150, emissive: 10295117, emissiveIntensity: 0.8 })
+    );
+    jewel.position.set(0, 0.28, 0.42);
+    crown.add(jewel);
+    crown.position.set(0, 1.85, 0.22);
+    crown.visible = false;
+    group.add(crown);
+    const badgeCanvas = document.createElement("canvas");
+    badgeCanvas.width = 256;
+    badgeCanvas.height = 64;
+    const badgeContext = badgeCanvas.getContext("2d");
+    if (badgeContext) {
+      badgeContext.fillStyle = "rgba(24, 17, 44, 0.9)";
+      badgeContext.strokeStyle = "#d7c8ff";
+      badgeContext.lineWidth = 4;
+      badgeContext.beginPath();
+      badgeContext.roundRect(4, 4, 248, 56, 20);
+      badgeContext.fill();
+      badgeContext.stroke();
+      badgeContext.fillStyle = "#fff";
+      badgeContext.font = "bold 28px sans-serif";
+      badgeContext.textAlign = "center";
+      badgeContext.textBaseline = "middle";
+      badgeContext.fillText(`BAT ${index + 1}`, 128, 33);
+    }
+    const badge = new Sprite(new SpriteMaterial({
+      map: new CanvasTexture(badgeCanvas),
+      transparent: true,
+      depthTest: false
+    }));
+    badge.scale.set(3.3, 0.82, 1);
+    badge.position.set(0, 3.1, 0.12);
+    badge.visible = false;
+    group.add(badge);
     group.userData.wingLeft = wingL;
     group.userData.wingRight = wingR;
     group.userData.animOffset = index * 0.8;
+    group.userData.bodyMaterial = bodyMat;
+    group.userData.wingMaterials = wingMats;
+    group.userData.body = body;
+    group.userData.baseScale = 1.45;
+    group.userData.alphaCrown = crown;
+    group.userData.alphaBadge = badge;
     return group;
   };
   // ==========================================================================
@@ -32011,14 +35517,22 @@ void main() {
       lo: obj.min,
       hi: obj.max,
       fitness: f2d,
-      populationSize: 20,
       maxIterations: this.maxIterations,
       seed: 42
     };
-    this.faEngine = new FAEngine({ ...cfg, beta0: 1, gamma: 1.5, alpha: 0.25 });
-    this.baEngine = new BAEngine({ ...cfg, fMin: 0, fMax: 2, loudness0: 0.5, pulseRate0: 0.5 });
+    this.faEngine = new FAEngine({ ...cfg, populationSize: this.faPopulationSize, beta0: 1, gamma: 1.5, alpha: 0.25 });
+    this.baEngine = new BAEngine({
+      ...cfg,
+      populationSize: this.baPopulationSize,
+      fmin: 0,
+      fmax: this.baFmax,
+      loudness: 0.5,
+      pulseRate: 0.5
+    });
     __privateMethod(this, _Landscape3DModal_instances, buildTerrainChunks_fn).call(this);
     __privateMethod(this, _Landscape3DModal_instances, syncSwarmPositions_fn).call(this);
+    this.historyFA = [{ iteration: 0, bestFitness: this.faEngine.getState().best.fitness }];
+    this.historyBA = [{ iteration: 0, bestFitness: this.baEngine.getState().best.fitness }];
     __privateMethod(this, _Landscape3DModal_instances, updateUI_fn).call(this);
   };
   stepSimulation_fn = function() {
@@ -32036,8 +35550,8 @@ void main() {
       this.iteration++;
       const faSt = this.faEngine.getState();
       const baSt = this.baEngine.getState();
-      if (faSt.best) this.historyFA.push(faSt.best.fitness);
-      if (baSt.best) this.historyBA.push(baSt.best.fitness);
+      if (faSt.best) this.historyFA.push({ iteration: this.iteration, bestFitness: faSt.best.fitness });
+      if (baSt.best) this.historyBA.push({ iteration: this.iteration, bestFitness: baSt.best.fitness });
       if (this.iteration % 3 === 0) sound.playChime();
       else if (this.iteration % 3 === 1) sound.playPing();
       if (baSt.best) {
@@ -32053,26 +35567,176 @@ void main() {
   to3D_fn = function(xNorm, yNorm) {
     const obj = landscapeById(this.currentObjId);
     const half = 40;
-    const zScale = 22;
-    const maxV = obj.maxVisualValue || 50;
     const u = (xNorm - obj.min) / (obj.max - obj.min);
     const v = (yNorm - obj.min) / (obj.max - obj.min);
     const x = -half + u * 80;
     const z = -half + v * 80;
-    const zVal = obj.evaluate(xNorm, yNorm);
-    const zNorm = Math.min(1.2, Math.max(0, zVal / maxV));
-    const y = zNorm * zScale;
-    return { x, y, z };
+    return { x, y: 0, z };
+  };
+  pickAgent_fn = function(event) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointerNdc.set(
+      (event.clientX - rect.left) / rect.width * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const creatures = [
+      ...this.viewMode === "both" || this.viewMode === "fa" ? this.faCreatures : [],
+      ...this.viewMode === "both" || this.viewMode === "ba" ? this.baCreatures : []
+    ];
+    for (const hit of this.raycaster.intersectObjects(creatures, true)) {
+      let creature = hit.object;
+      while (creature && !creature.userData.agentType) creature = creature.parent;
+      if (creature) {
+        return {
+          type: creature.userData.agentType,
+          index: creature.userData.agentIndex,
+          creature
+        };
+      }
+    }
+    return null;
+  };
+  selectAgent_fn = function(selection) {
+    if (this.selectedAgent?.creature) {
+      this.selectedAgent.creature.userData.selectionRing.visible = false;
+    }
+    this.selectedAgent = selection;
+    if (selection?.creature) {
+      selection.creature.userData.selectionRing.visible = true;
+    }
+    const hint = this.modal.querySelector("#sky-agent-hint");
+    const deleteButton = this.modal.querySelector("#sky-agent-delete");
+    if (deleteButton) deleteButton.hidden = !selection;
+    if (hint) {
+      if (!selection) {
+        hint.textContent = this.lang === "ID" ? "Pilih unit, lalu seret untuk memindahkannya" : "Select a unit, then drag to move it";
+      } else {
+        const label = selection.type === "fa" ? this.lang === "ID" ? "Kunang-kunang" : "Firefly" : this.lang === "ID" ? "Kelelawar" : "Bat";
+        hint.textContent = `${label} #${selection.index + 1} \xB7 ${this.lang === "ID" ? "seret untuk pindah" : "drag to move"}`;
+      }
+    }
+  };
+  moveSelectedAgent_fn = function(event) {
+    if (!this.selectedAgent) return;
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointerNdc.set(
+      (event.clientX - rect.left) / rect.width * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const point = this.raycaster.ray.intersectPlane(this.groundPlane, new Vector3());
+    if (!point) return;
+    const isFirefly = this.selectedAgent.type === "fa";
+    const group = isFirefly ? this.faChunkGroup : this.baChunkGroup;
+    const engine = isFirefly ? this.faEngine : this.baEngine;
+    const creatures = isFirefly ? this.faCreatures : this.baCreatures;
+    const agent = engine.agents[this.selectedAgent.index];
+    if (!agent) return;
+    const obj = landscapeById(this.currentObjId);
+    const localX = MathUtils.clamp(point.x - group.position.x, -40, 40);
+    const localZ = MathUtils.clamp(point.z, -40, 40);
+    const position = [
+      obj.min + (localX + 40) / 80 * (obj.max - obj.min),
+      obj.min + (localZ + 40) / 80 * (obj.max - obj.min)
+    ];
+    agent.x = position;
+    agent.px = position.slice();
+    if (agent.stepFrom) agent.stepFrom = position.slice();
+    const terrainPosition = __privateMethod(this, _Landscape3DModal_instances, to3D_fn).call(this, position[0], position[1]);
+    const creature = creatures[this.selectedAgent.index];
+    const hoverY = terrainPosition.y + (isFirefly ? 7 : 9);
+    creature.position.set(terrainPosition.x, hoverY, terrainPosition.z);
+    creature.userData.flightTarget = { x: terrainPosition.x, y: hoverY, z: terrainPosition.z };
+    creature.userData.hoverBaseY = hoverY;
+    this.agentDragDirty = true;
+  };
+  finishAgentMove_fn = function() {
+    if (!this.agentDragDirty || !this.selectedAgent) return;
+    const isFirefly = this.selectedAgent.type === "fa";
+    const engine = isFirefly ? this.faEngine : this.baEngine;
+    const agent = engine.agents[this.selectedAgent.index];
+    if (agent) {
+      agent.f = engine.evalFitness(agent.x);
+      if (!isFirefly) {
+        agent.v.fill(0);
+        agent.trial = null;
+        agent.trialF = null;
+        agent.accepted = null;
+      } else {
+        agent.attractor = -1;
+        agent.pull = 0;
+      }
+      engine.updateBest();
+      if (isFirefly) engine.rankAgents();
+      engine.phase = "INIT";
+      engine.phaseLabel = isFirefly ? "Sebar kunang-kunang" : "Sebar kelelawar";
+    }
+    this.agentDragDirty = false;
+    __privateMethod(this, _Landscape3DModal_instances, syncSwarmPositions_fn).call(this);
+    __privateMethod(this, _Landscape3DModal_instances, updateUI_fn).call(this);
+  };
+  destroySelectedAgent_fn = function() {
+    if (!this.selectedAgent) return;
+    const isFirefly = this.selectedAgent.type === "fa";
+    const engine = isFirefly ? this.faEngine : this.baEngine;
+    const creatures = isFirefly ? this.faCreatures : this.baCreatures;
+    if (engine.agents.length <= 2) {
+      const hint = this.modal.querySelector("#sky-agent-hint");
+      if (hint) {
+        hint.textContent = this.lang === "ID" ? "Minimal 2 unit harus tersisa agar algoritma dapat berjalan" : "At least 2 units must remain for the algorithm to run";
+      }
+      sound.playClick();
+      return;
+    }
+    const index = this.selectedAgent.index;
+    const [creature] = creatures.splice(index, 1);
+    creature?.parent?.remove(creature);
+    engine.agents.splice(index, 1);
+    engine.populationSize = engine.agents.length;
+    creatures.forEach((unit, unitIndex) => {
+      unit.userData.agentIndex = unitIndex;
+    });
+    __privateMethod(this, _Landscape3DModal_instances, selectAgent_fn).call(this, null);
+    this.agentDragDirty = false;
+    __privateMethod(this, _Landscape3DModal_instances, syncSwarmPositions_fn).call(this);
+    const populationInput = this.modal.querySelector(
+      isFirefly ? "#sky-fa-population-input" : "#sky-ba-population-input"
+    );
+    const populationLabel = this.modal.querySelector(
+      isFirefly ? "#sky-fa-population-label" : "#sky-ba-population-label"
+    );
+    const count = engine.agents.length;
+    if (isFirefly) this.faPopulationSize = count;
+    else this.baPopulationSize = count;
+    if (populationInput) populationInput.value = String(count);
+    if (populationLabel) populationLabel.textContent = String(count);
+    sound.playSword();
+    __privateMethod(this, _Landscape3DModal_instances, updateUI_fn).call(this);
   };
   syncSwarmPositions_fn = function() {
     const faSt = this.faEngine.getState();
     const baSt = this.baEngine.getState();
     if (faSt.agents) {
+      const bestPosition = faSt.best?.x;
+      const alphaIndex = bestPosition ? faSt.agents.reduce((bestIdx, agent, index, agents) => {
+        const distance = (candidate) => candidate.x.reduce((sum, value, dim) => sum + (value - bestPosition[dim]) ** 2, 0);
+        return distance(agent) < distance(agents[bestIdx]) ? index : bestIdx;
+      }, 0) : -1;
       faSt.agents.forEach((ind, i) => {
         const m = this.faCreatures[i];
         if (!m) return;
         const p = __privateMethod(this, _Landscape3DModal_instances, to3D_fn).call(this, ind.x[0], ind.x[1]);
-        m.position.set(p.x, p.y + 2, p.z);
+        const target = { x: p.x, y: p.y + 7, z: p.z };
+        if (!m.userData.flightReady) {
+          m.position.set(target.x, target.y, target.z);
+          m.userData.flightReady = true;
+        }
+        m.userData.flightTarget = target;
+        m.userData.hoverBaseY = p.y + 7;
+        const isAlpha = i === alphaIndex;
+        m.userData.alphaCrown.visible = isAlpha;
+        m.userData.alphaBadge.visible = isAlpha;
       });
     }
     if (faSt.best) {
@@ -32080,11 +35744,45 @@ void main() {
       this.faBestMarker?.position.set(faBestP.x, faBestP.y, faBestP.z);
     }
     if (baSt.agents) {
+      const bestPosition = baSt.best?.x;
+      const alphaIndex = bestPosition ? baSt.agents.reduce((bestIdx, agent, index, agents) => {
+        const distance = (candidate) => candidate.x.reduce((sum, value, dim) => sum + (value - bestPosition[dim]) ** 2, 0);
+        return distance(agent) < distance(agents[bestIdx]) ? index : bestIdx;
+      }, 0) : -1;
+      const bestPoint = bestPosition ? __privateMethod(this, _Landscape3DModal_instances, to3D_fn).call(this, bestPosition[0], bestPosition[1]) : null;
       baSt.agents.forEach((ind, i) => {
         const m = this.baCreatures[i];
         if (!m) return;
-        const p = __privateMethod(this, _Landscape3DModal_instances, to3D_fn).call(this, ind.x[0], ind.x[1]);
-        m.position.set(p.x, p.y + 2.6, p.z);
+        const isAlpha = i === alphaIndex;
+        const isNearLeader = bestPosition && Math.hypot(ind.x[0] - bestPosition[0], ind.x[1] - bestPosition[1]) < 0.24;
+        let p = __privateMethod(this, _Landscape3DModal_instances, to3D_fn).call(this, ind.x[0], ind.x[1]);
+        if (isNearLeader && !isAlpha && bestPoint) {
+          const angle = i * 2.399963229728653;
+          const orbitRadius = 3.2 + (1 - (ind.A ?? 0.5)) * 1.8;
+          p = {
+            ...p,
+            x: bestPoint.x + Math.cos(angle) * orbitRadius,
+            z: bestPoint.z + Math.sin(angle) * orbitRadius
+          };
+        }
+        const target = { x: p.x, y: p.y + 9, z: p.z };
+        if (!m.userData.flightReady) {
+          m.position.set(target.x, target.y, target.z);
+          m.userData.flightReady = true;
+        }
+        m.userData.flightTarget = target;
+        m.userData.hoverBaseY = p.y + 9;
+        m.userData.alphaCrown.visible = isAlpha;
+        m.userData.alphaBadge.visible = isAlpha;
+        m.userData.bodyMaterial.color.setHex(isAlpha ? 16736162 : 9207766);
+        m.userData.bodyMaterial.emissive.setHex(isAlpha ? 8003402 : 0);
+        m.userData.bodyMaterial.emissiveIntensity = isAlpha ? 0.8 : 0;
+        m.userData.wingMaterials.forEach((material) => {
+          material.color.setHex(isAlpha ? 14240394 : 6247608);
+        });
+        const scale = isAlpha ? 1.9 : m.userData.baseScale;
+        m.scale.setScalar(scale);
+        m.userData.isAlpha = isAlpha;
       });
     }
     if (baSt.best) {
@@ -32095,8 +35793,8 @@ void main() {
   // ==========================================================================
   // 9. ANIMASI LOOP, KONTROL KAMERA RTS & TRANSISI POV
   // ==========================================================================
-  startLoop_fn = function() {
-    __privateMethod(this, _Landscape3DModal_instances, stopLoop_fn).call(this);
+  startLoop_fn2 = function() {
+    __privateMethod(this, _Landscape3DModal_instances, stopLoop_fn2).call(this);
     let lastStepTime = performance.now();
     const loop = (t) => {
       if (this.autoRotate && !this.isDragging) {
@@ -32106,10 +35804,18 @@ void main() {
       this.cameraAngle.phi = MathUtils.lerp(this.cameraAngle.phi, this.targetAngle.phi, 0.08);
       this.cameraAngle.radius = MathUtils.lerp(this.cameraAngle.radius, this.targetAngle.radius, 0.08);
       __privateMethod(this, _Landscape3DModal_instances, updateCameraPosition_fn).call(this);
+      __privateMethod(this, _Landscape3DModal_instances, updateCameraOcclusion_fn).call(this);
       if (this.faBestMarker?.userData?.gem) this.faBestMarker.userData.gem.rotation.y += 0.035;
       if (this.baBestMarker?.userData?.gem) this.baBestMarker.userData.gem.rotation.y -= 0.035;
       this.faCreatures.forEach((c) => {
         const off = c.userData.animOffset || 0;
+        const target = c.userData.flightTarget;
+        if (target) {
+          c.position.x = MathUtils.lerp(c.position.x, target.x, 0.055);
+          c.position.z = MathUtils.lerp(c.position.z, target.z, 0.055);
+          c.rotation.y = Math.atan2(target.x - c.position.x, target.z - c.position.z);
+        }
+        c.position.y = (c.userData.hoverBaseY || 7) + Math.sin(t * 26e-4 + off) * 1.15;
         const pulse = 0.7 + 0.5 * Math.sin(t * 8e-3 + off);
         if (c.userData.bulb) c.userData.bulb.material.emissiveIntensity = pulse;
         if (c.userData.light) c.userData.light.intensity = pulse * 0.8;
@@ -32119,6 +35825,13 @@ void main() {
       });
       this.baCreatures.forEach((b) => {
         const off = b.userData.animOffset || 0;
+        const target = b.userData.flightTarget;
+        if (target) {
+          b.position.x = MathUtils.lerp(b.position.x, target.x, 0.055);
+          b.position.z = MathUtils.lerp(b.position.z, target.z, 0.055);
+          b.rotation.y = Math.atan2(target.x - b.position.x, target.z - b.position.z);
+        }
+        b.position.y = (b.userData.hoverBaseY || 9) + Math.sin(t * 2e-3 + off + 1.2) * 1.6;
         const flap = Math.sin(t * 0.012 + off) * 0.55;
         if (b.userData.wingLeft) b.userData.wingLeft.rotation.z = flap;
         if (b.userData.wingRight) b.userData.wingRight.rotation.z = -flap;
@@ -32151,7 +35864,7 @@ void main() {
     };
     this.animId = requestAnimationFrame(loop);
   };
-  stopLoop_fn = function() {
+  stopLoop_fn2 = function() {
     if (this.animId) {
       cancelAnimationFrame(this.animId);
       this.animId = null;
@@ -32168,11 +35881,11 @@ void main() {
   setCameraPreset_fn = function(pov) {
     this.povMode = pov;
     if (pov === "iso") {
-      this.targetAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 245 };
-      this.cameraTarget.set(0, -4, 0);
+      this.targetAngle = { theta: Math.PI * 0.25, phi: Math.PI * 0.34, radius: 290 };
+      this.cameraTarget.set(0, 8, 0);
     } else if (pov === "bird") {
-      this.targetAngle = { theta: 0, phi: 0.05, radius: 260 };
-      this.cameraTarget.set(0, 0, 0);
+      this.targetAngle = { theta: 0, phi: 0.05, radius: 320 };
+      this.cameraTarget.set(0, 6, 0);
     }
   };
   onResize_fn = function() {
@@ -32208,6 +35921,35 @@ void main() {
     if (baBestEl) baBestEl.textContent = (baSt.best?.fitness ?? 0).toFixed(4);
     if (baIterEl) baIterEl.textContent = `${this.iteration} / ${this.maxIterations}`;
     if (baLoudEl) baLoudEl.textContent = (baSt.meanA ?? 0.5).toFixed(2);
+    const faCountEl = this.modal.querySelector("#fa-val-count");
+    const baCountEl = this.modal.querySelector("#ba-val-count");
+    const baFmaxEl = this.modal.querySelector("#ba-val-fmax");
+    if (faCountEl) faCountEl.textContent = String(faSt.agents.length);
+    if (baCountEl) baCountEl.textContent = String(baSt.agents.length);
+    if (baFmaxEl) baFmaxEl.textContent = this.baFmax.toFixed(1);
+    const faInitial = this.historyFA[0]?.bestFitness ?? faSt.best?.fitness ?? 0;
+    const baInitial = this.historyBA[0]?.bestFitness ?? baSt.best?.fitness ?? 0;
+    const faBest = faSt.best;
+    const baBest = baSt.best;
+    const objective = landscapeById(this.currentObjId);
+    const convergenceObjective = this.modal.querySelector("#sky-convergence-objective");
+    const convergenceSubtitle = this.modal.querySelector("#sky-convergence-subtitle");
+    if (convergenceObjective) {
+      convergenceObjective.textContent = isID ? `Objektif: ${objective.name}` : `Objective: ${objective.name}`;
+    }
+    if (convergenceSubtitle) {
+      convergenceSubtitle.textContent = isID ? "Fitness terbaik pada tiap iterasi \xB7 semakin rendah semakin baik" : "Best fitness at each iteration \xB7 lower is better";
+    }
+    const setMetric = (id, value) => {
+      const el = this.modal.querySelector(`#${id}`);
+      if (el) el.textContent = value;
+    };
+    setMetric("fa-val-improvement", (faInitial - (faBest?.fitness ?? faInitial)).toFixed(4));
+    setMetric("ba-val-improvement", (baInitial - (baBest?.fitness ?? baInitial)).toFixed(4));
+    setMetric("fa-val-position", faBest ? `(${faBest.x[0].toFixed(2)}, ${faBest.x[1].toFixed(2)})` : "\u2014");
+    setMetric("ba-val-position", baBest ? `(${baBest.x[0].toFixed(2)}, ${baBest.x[1].toFixed(2)})` : "\u2014");
+    setMetric("fa-val-evaluations", faSt.evaluations.toLocaleString());
+    setMetric("ba-val-evaluations", baSt.evaluations.toLocaleString());
     if (roundText) {
       roundText.textContent = isID ? `Iterasi ${this.iteration} dari ${this.maxIterations}` : `Round ${this.iteration} of ${this.maxIterations}`;
     }
@@ -32215,8 +35957,8 @@ void main() {
     const narBA = this.modal.querySelector("#narrative-ba-text");
     if (isID) {
       if (this.stepPhase === 1) {
-        if (narFA) narFA.innerHTML = `<b>Kunang-Kunang: \u2460 Ukur.</b> Menghitung intensitas cahaya lantern <i>I</i> = fitness pada ketinggian medan. Lembah terendah tampak paling terang.`;
-        if (narBA) narBA.innerHTML = `<b>Kelelawar: \u2460 Ukur.</b> Memancarkan pulsa sonar ultrasonik frekuensi <i>f</i>. Mengukur pantulan gema echo dari kontur medan terdekat.`;
+        if (narFA) narFA.innerHTML = `<b>Kunang-Kunang: \u2460 Ukur.</b> Mengindra intensitas lentera dan mengukur fitness dari titik-titik di dalam ruangan.`;
+        if (narBA) narBA.innerHTML = `<b>Kelelawar: \u2460 Ukur.</b> Memancarkan pulsa sonar ultrasonik <i>f</i> untuk membaca gema dinding gua dan menemukan kristal putih.`;
       } else if (this.stepPhase === 2) {
         if (narFA) narFA.innerHTML = `<b>Kunang-Kunang: \u2461 Tentukan.</b> Menghitung daya tarik \u03B2(r) = \u03B2\u2080 e^(-\u03B3 r\xB2). Yang lebih redup menentukan arah terbang menuju kunang-kunang yang lebih benderang.`;
         if (narBA) narBA.innerHTML = `<b>Kelelawar: \u2461 Tentukan.</b> Mengevaluasi kelantangan <i>A</i> dan frekuensi pulsa <i>r</i>. Jika rand > r, lakukan penelusuran lokal eksploitasi pemimpin <i>x*</i>.`;
@@ -32226,8 +35968,8 @@ void main() {
       }
     } else {
       if (this.stepPhase === 1) {
-        if (narFA) narFA.innerHTML = `<b>Firefly: \u2460 Measure.</b> Measuring lantern brightness <i>I</i> = fitness across terrain. Deeper valleys glow brighter.`;
-        if (narBA) narBA.innerHTML = `<b>Bat: \u2460 Measure.</b> Emitting ultrasonic sonar pulses <i>f</i>. Reading acoustic echoes bouncing off topography.`;
+        if (narFA) narFA.innerHTML = `<b>Firefly: \u2460 Measure.</b> Sensing lantern intensity and evaluating fitness at positions across the room.`;
+        if (narBA) narBA.innerHTML = `<b>Bat: \u2460 Measure.</b> Emitting ultrasonic pulses <i>f</i> to read cave echoes and locate the white crystal.`;
       } else if (this.stepPhase === 2) {
         if (narFA) narFA.innerHTML = `<b>Firefly: \u2461 Decide.</b> Computing attraction \u03B2(r) = \u03B2\u2080 e^(-\u03B3 r\xB2). Dimmer fireflies lock onto brighter peers.`;
         if (narBA) narBA.innerHTML = `<b>Bat: \u2461 Decide.</b> Evaluating loudness <i>A</i> and pulse rate <i>r</i>. If rand > r, local exploitation around leader <i>x*</i> begins.`;
@@ -32242,43 +35984,27 @@ void main() {
     const bBA = this.modal.querySelector("#badge-ba");
     if (bFA) bFA.style.display = this.viewMode === "both" || this.viewMode === "fa" ? "flex" : "none";
     if (bBA) bBA.style.display = this.viewMode === "both" || this.viewMode === "ba" ? "flex" : "none";
-    __privateMethod(this, _Landscape3DModal_instances, drawSparkline_fn).call(this);
+    __privateMethod(this, _Landscape3DModal_instances, drawConvergenceChart_fn).call(this);
   };
-  drawSparkline_fn = function() {
-    const cv = this.modal.querySelector("#sky-sparkline-cv");
-    if (!cv) return;
-    const ctx = cv.getContext("2d");
-    const w = cv.width;
-    const h = cv.height;
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "rgba(0,0,0,0.06)";
-    ctx.fillRect(0, 0, w, h);
-    if (this.historyFA.length < 2) return;
-    const maxVal = Math.max(...this.historyFA, ...this.historyBA, 1);
-    const n = this.maxIterations;
-    ctx.strokeStyle = "#06b6d4";
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    this.historyFA.forEach((val, i) => {
-      const x = i / n * w;
-      const y = h - val / maxVal * (h - 6) - 3;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-    ctx.strokeStyle = "#9333ea";
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    this.historyBA.forEach((val, i) => {
-      const x = i / n * w;
-      const y = h - val / maxVal * (h - 6) - 3;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+  drawConvergenceChart_fn = function() {
+    const panel = this.modal.querySelector("#sky-convergence-panel");
+    const cv = this.modal.querySelector("#sky-convergence-cv");
+    if (!cv || !panel?.open) return;
+    renderConvergenceChart(cv, [
+      { label: "Firefly", color: "#06b6d4", fill: "rgba(6, 182, 212, 0.12)", data: this.historyFA },
+      { label: "Bat", color: "#9333ea", data: this.historyBA }
+    ], { maxIterations: this.maxIterations, yMin: 0, legend: true, decimals: 3 });
   };
   // ==========================================================================
   // 11. EVENT LISTENERS
   // ==========================================================================
   bindEvents_fn = function() {
+    this.modal.querySelector("#sky-convergence-panel")?.addEventListener("toggle", () => {
+      if (this.modal.querySelector("#sky-convergence-panel")?.open) __privateMethod(this, _Landscape3DModal_instances, drawConvergenceChart_fn).call(this);
+    });
+    this.modal.querySelector("#sky-agent-delete")?.addEventListener("click", () => {
+      __privateMethod(this, _Landscape3DModal_instances, destroySelectedAgent_fn).call(this);
+    });
     this.modal.querySelector("#sky-btn-close")?.addEventListener("click", () => this.close());
     this.modal.querySelectorAll("#sky-pov-picker button").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -32346,11 +36072,48 @@ void main() {
       this.speed = Number(e.target.value);
       if (spLabel) spLabel.textContent = `${this.speed.toFixed(1)}x`;
     });
+    const tuningInputs = [
+      { id: "#sky-fa-population-input", output: "#sky-fa-population-label", value: "faPopulationSize", parse: Number },
+      { id: "#sky-ba-population-input", output: "#sky-ba-population-label", value: "baPopulationSize", parse: Number },
+      { id: "#sky-fmax-input", output: "#sky-fmax-label", value: "baFmax", parse: (value) => Number(value) }
+    ];
+    tuningInputs.forEach(({ id, output, value, parse }) => {
+      const input = this.modal.querySelector(id);
+      const label = this.modal.querySelector(output);
+      input?.addEventListener("input", (e) => {
+        const nextValue = parse(e.target.value);
+        if (label) label.textContent = value === "baFmax" ? nextValue.toFixed(1) : String(nextValue);
+      });
+      input?.addEventListener("change", (e) => {
+        this[value] = parse(e.target.value);
+        this.isPlaying = false;
+        if (playBtn) playBtn.textContent = "\u25B6\uFE0F";
+        __privateMethod(this, _Landscape3DModal_instances, resetSimulation_fn).call(this);
+      });
+    });
     this.canvas.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      const selection = __privateMethod(this, _Landscape3DModal_instances, pickAgent_fn).call(this, e);
+      __privateMethod(this, _Landscape3DModal_instances, selectAgent_fn).call(this, selection);
+      if (selection) {
+        if (this.isPlaying) {
+          this.isPlaying = false;
+          const playButton = this.modal.querySelector("#sky-act-play");
+          if (playButton) playButton.textContent = "\u25B6\uFE0F";
+        }
+        this.isMovingAgent = true;
+        this.agentDragDirty = false;
+        this.canvas.style.cursor = "grabbing";
+        return;
+      }
       this.isDragging = true;
       this.prevMouse = { x: e.clientX, y: e.clientY };
     });
     window.addEventListener("mousemove", (e) => {
+      if (this.isMovingAgent) {
+        __privateMethod(this, _Landscape3DModal_instances, moveSelectedAgent_fn).call(this, e);
+        return;
+      }
       if (!this.isDragging) return;
       const dx = e.clientX - this.prevMouse.x;
       const dy = e.clientY - this.prevMouse.y;
@@ -32360,10 +36123,22 @@ void main() {
     });
     window.addEventListener("mouseup", () => {
       this.isDragging = false;
+      if (this.isMovingAgent) {
+        this.isMovingAgent = false;
+        this.canvas.style.cursor = "grab";
+        __privateMethod(this, _Landscape3DModal_instances, finishAgentMove_fn).call(this);
+      }
+    });
+    this.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    window.addEventListener("keydown", (e) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && this.selectedAgent && !this.modal.classList.contains("hidden")) {
+        e.preventDefault();
+        __privateMethod(this, _Landscape3DModal_instances, destroySelectedAgent_fn).call(this);
+      }
     });
     this.canvas.addEventListener("wheel", (e) => {
       e.preventDefault();
-      this.targetAngle.radius = Math.max(120, Math.min(380, this.targetAngle.radius + e.deltaY * 0.22));
+      this.targetAngle.radius = Math.max(70, Math.min(380, this.targetAngle.radius + e.deltaY * 0.22));
     }, { passive: false });
   };
   updateLangLabels_fn = function() {
@@ -32374,51 +36149,99 @@ void main() {
     const step2 = this.modal.querySelector("#chip-step-2");
     const step3 = this.modal.querySelector("#chip-step-3");
     const speedTxt = this.modal.querySelector("#sky-speed-txt");
-    const sparkTxt = this.modal.querySelector("#sky-spark-txt");
+    const convergenceTitle = this.modal.querySelector("#sky-convergence-title");
     const bFATitle = this.modal.querySelector("#badge-fa-title");
     const bBATitle = this.modal.querySelector("#badge-ba-title");
     const lFABest = this.modal.querySelector("#lbl-fa-best");
     const lFAIter = this.modal.querySelector("#lbl-fa-iter");
     const lBABest = this.modal.querySelector("#lbl-ba-best");
     const lBAIter = this.modal.querySelector("#lbl-ba-iter");
+    const lFACount = this.modal.querySelector("#lbl-fa-count");
+    const lBACount = this.modal.querySelector("#lbl-ba-count");
+    const lBAFmax = this.modal.querySelector("#lbl-ba-fmax");
+    const faPopulationTxt = this.modal.querySelector("#sky-fa-population-txt");
+    const baPopulationTxt = this.modal.querySelector("#sky-ba-population-txt");
+    const fmaxTxt = this.modal.querySelector("#sky-fmax-txt");
+    const agentHint = this.modal.querySelector("#sky-agent-hint");
+    const agentDelete = this.modal.querySelector("#sky-agent-delete");
+    const faImprovement = this.modal.querySelector("#lbl-fa-improvement");
+    const baImprovement = this.modal.querySelector("#lbl-ba-improvement");
+    const faPosition = this.modal.querySelector("#lbl-fa-position");
+    const baPosition = this.modal.querySelector("#lbl-ba-position");
+    const faEvaluations = this.modal.querySelector("#lbl-fa-evaluations");
+    const baEvaluations = this.modal.querySelector("#lbl-ba-evaluations");
+    const sceneFaLabel = this.modal.querySelector("#scene-fa-label");
+    const sceneBaLabel = this.modal.querySelector("#scene-ba-label");
     if (isID) {
-      if (titleText) titleText.textContent = "Sky Optimizers 3D";
-      if (subText) subText.textContent = "Dua Cara Menemukan Lembah Terendah: Ordo Kunang-Kunang vs Legiun Kelelawar";
+      if (titleText) titleText.textContent = "Firefly & Bat 3D";
+      if (subText) subText.textContent = "Kunang-kunang mengejar lentera \xB7 Kelelawar memburu kristal putih di dalam gua";
+      if (sceneFaLabel) sceneFaLabel.textContent = "RUANG LENTERA";
+      if (sceneBaLabel) sceneBaLabel.textContent = "GUA KRISTAL PUTIH";
       if (step1) step1.textContent = "\u2460 Ukur (Measure)";
       if (step2) step2.textContent = "\u2461 Tentukan (Decide)";
       if (step3) step3.textContent = "\u2462 Gerak (Move)";
-      if (speedTxt) speedTxt.textContent = "Kecepatan:";
-      if (sparkTxt) sparkTxt.textContent = "Konvergensi:";
+      if (speedTxt) speedTxt.textContent = "Kecepatan";
+      if (convergenceTitle) convergenceTitle.textContent = "Grafik konvergensi";
       if (bFATitle) bFATitle.textContent = "Ordo Kunang-Kunang";
       if (bBATitle) bBATitle.textContent = "Legiun Kelelawar";
       if (lFABest) lFABest.textContent = "Terbaik:";
       if (lFAIter) lFAIter.textContent = "Iterasi:";
       if (lBABest) lBABest.textContent = "Terbaik:";
       if (lBAIter) lBAIter.textContent = "Iterasi:";
+      if (lFACount) lFACount.textContent = "Pasukan:";
+      if (lBACount) lBACount.textContent = "Pasukan:";
+      if (lBAFmax) lBAFmax.textContent = "Frekuensi maks.:";
+      if (faPopulationTxt) faPopulationTxt.textContent = "Jumlah kunang-kunang";
+      if (baPopulationTxt) baPopulationTxt.textContent = "Jumlah kelelawar";
+      if (fmaxTxt) fmaxTxt.textContent = "Frekuensi maksimum f\u2098\u2090\u2093";
+      if (agentHint) agentHint.textContent = this.selectedAgent ? `${this.selectedAgent.type === "fa" ? "Kunang-kunang" : "Kelelawar"} #${this.selectedAgent.index + 1} \xB7 seret untuk pindah` : "Pilih unit, lalu seret untuk memindahkannya";
+      if (agentDelete) agentDelete.textContent = "\u{1FA93} Hancurkan unit";
+      if (faImprovement) faImprovement.textContent = "Perbaikan fitness";
+      if (baImprovement) baImprovement.textContent = "Perbaikan fitness";
+      if (faPosition) faPosition.textContent = "Koordinat terbaik";
+      if (baPosition) baPosition.textContent = "Koordinat terbaik";
+      if (faEvaluations) faEvaluations.textContent = "Evaluasi fungsi";
+      if (baEvaluations) baEvaluations.textContent = "Evaluasi fungsi";
     } else {
-      if (titleText) titleText.textContent = "Sky Optimizers 3D";
-      if (subText) subText.textContent = "Two Ways to Find the Lowest Valley: Firefly Swarm vs Bat Legion";
+      if (titleText) titleText.textContent = "Firefly & Bat 3D";
+      if (subText) subText.textContent = "Fireflies chase the lantern \xB7 Bats hunt the white crystal inside the cave";
+      if (sceneFaLabel) sceneFaLabel.textContent = "LANTERN ROOM";
+      if (sceneBaLabel) sceneBaLabel.textContent = "WHITE CRYSTAL CAVE";
       if (step1) step1.textContent = "\u2460 Measure";
       if (step2) step2.textContent = "\u2461 Decide";
       if (step3) step3.textContent = "\u2462 Move";
-      if (speedTxt) speedTxt.textContent = "Speed:";
-      if (sparkTxt) sparkTxt.textContent = "Convergence:";
+      if (speedTxt) speedTxt.textContent = "Speed";
+      if (convergenceTitle) convergenceTitle.textContent = "Convergence chart";
       if (bFATitle) bFATitle.textContent = "Firefly Swarm";
       if (bBATitle) bBATitle.textContent = "Bat Legion";
       if (lFABest) lFABest.textContent = "Best:";
       if (lFAIter) lFAIter.textContent = "Round:";
       if (lBABest) lBABest.textContent = "Best:";
       if (lBAIter) lBAIter.textContent = "Round:";
+      if (lFACount) lFACount.textContent = "Units:";
+      if (lBACount) lBACount.textContent = "Units:";
+      if (lBAFmax) lBAFmax.textContent = "Max frequency:";
+      if (faPopulationTxt) faPopulationTxt.textContent = "Firefly population";
+      if (baPopulationTxt) baPopulationTxt.textContent = "Bat population";
+      if (fmaxTxt) fmaxTxt.textContent = "Maximum frequency f\u2098\u2090\u2093";
+      if (agentHint) agentHint.textContent = this.selectedAgent ? `${this.selectedAgent.type === "fa" ? "Firefly" : "Bat"} #${this.selectedAgent.index + 1} \xB7 drag to move` : "Select a unit, then drag to move it";
+      if (agentDelete) agentDelete.textContent = "\u{1FA93} Destroy unit";
+      if (faImprovement) faImprovement.textContent = "Fitness improvement";
+      if (baImprovement) baImprovement.textContent = "Fitness improvement";
+      if (faPosition) faPosition.textContent = "Best coordinates";
+      if (baPosition) baPosition.textContent = "Best coordinates";
+      if (faEvaluations) faEvaluations.textContent = "Function evaluations";
+      if (baEvaluations) baEvaluations.textContent = "Function evaluations";
     }
   };
 
   // src/ui/aoeHud.js
   var ERAS = [
-    { id: "dark", name: "Zaman Gelap", sub: "Krisis Cloud & NP-Hard", icon: "\u{1F3F0}", firstSlide: "masalah" },
-    { id: "feudal", name: "Zaman Feodal", sub: "Ordo Kunang-Kunang (FA)", icon: "\u{1F4A1}", firstSlide: "fa-inspirasi" },
-    { id: "castle", name: "Zaman Kastil", sub: "Legiun Kelelawar (BA)", icon: "\u{1F987}", firstSlide: "ba-inspirasi" },
-    { id: "imperial", name: "Zaman Imperial", sub: "Perang Penjadwalan Cloud", icon: "\u2694\uFE0F", firstSlide: "kasus-kode" },
-    { id: "wonder", name: "Keajaiban Dunia", sub: "Sintesis & Analisis Hasil", icon: "\u{1F3DB}\uFE0F", firstSlide: "adu" }
+    { id: "dark", name: "Act 1", sub: "Krisis Cloud & NP-Hard", icon: "\u{1F3F0}", firstSlide: "masalah" },
+    { id: "feudal", name: "Act 2", sub: "Ordo Kunang-Kunang (FA)", icon: "\u{1F4A1}", firstSlide: "fa-inspirasi" },
+    { id: "castle", name: "Act 3", sub: "Legiun Kelelawar (BA)", icon: "\u{1F987}", firstSlide: "ba-inspirasi" },
+    { id: "imperial", name: "Act 4", sub: "Perang Penjadwalan Cloud", icon: "\u2694\uFE0F", firstSlide: "kasus-kode" },
+    { id: "wonder", name: "Act 5", sub: "Sintesis & Analisis Hasil", icon: "\u{1F3DB}\uFE0F", firstSlide: "adu" }
   ];
   var _AoEHud_instances, updateEraBanner_fn, updateResources_fn, updateDefaultEntityCard_fn, renderEntityCard_fn, initMinimap_fn, drawMinimap_fn, showTacticalBeacon_fn, bind_fn4, render_fn4;
   var AoEHud = class {
@@ -32429,7 +36252,7 @@ void main() {
       __privateAdd(this, _AoEHud_instances);
       this.presenter = presenter;
       this.techTree = new TechTreeModal();
-      this.sandbox = new AoESandboxModal();
+      this.sandbox = new AoESandboxModal(() => this.presenter.goTo(0));
       this.codex = new DeepCodexModal();
       this.landscape3d = new Landscape3DModal();
       this.hudEl = null;
@@ -32662,7 +36485,7 @@ void main() {
         eraDropdown?.classList.add("hidden");
         const slideId = item.dataset.firstSlide;
         const targetIdx = this.presenter.slides.findIndex((s) => s.id === slideId);
-        if (targetIdx >= 0) this.presenter.goTo(targetIdx, { event: e });
+        if (targetIdx >= 0) this.presenter.goTo(targetIdx);
       });
     });
     this.minimapCanvas?.addEventListener("click", (e) => {
@@ -32722,19 +36545,19 @@ void main() {
       <header class="aoe-floating-header">
         <!-- Dropdown Kemajuan Era -->
         <div class="aoe-era-selector-wrap">
-          <button type="button" id="aoe-era-selector-btn" class="aoe-era-crest-btn" title="Klik untuk berpindah ke Zaman Peradaban lain">
+          <button type="button" id="aoe-era-selector-btn" class="aoe-era-crest-btn" title="Pilih act presentasi">
             <span id="aoe-active-era-icon" class="era-icon">\u{1F3F0}</span>
-            <b id="aoe-active-era-text">ZAMAN GELAP</b>
+            <b id="aoe-active-era-text">ACT 1</b>
             <span class="era-arrow">\u25BC</span>
           </button>
 
           <div id="aoe-era-dropdown" class="aoe-era-dropdown hidden">
             ${ERAS.map(
-      (era, idx) => `
+      (era) => `
               <button type="button" class="aoe-era-dropdown-item" data-era-id="${era.id}" data-first-slide="${era.firstSlide}">
                 <span class="item-icon">${era.icon}</span>
                 <div class="item-text">
-                  <b>Era ${idx + 1}: ${era.name}</b>
+                  <b>${era.name}</b>
                   <small>${era.sub}</small>
                 </div>
               </button>`
@@ -32803,11 +36626,17 @@ void main() {
   };
 
   // src/ui/presenter.js
-  var STAGE_W = 1920;
-  var STAGE_H = 1080;
-  var LEAVE_MS = 700;
+  var STAGE_W2 = 1920;
+  var STAGE_H2 = 1080;
   var $ = (id) => document.getElementById(id);
-  var _Presenter_instances, fit_fn, buildSpine_fn, buildOverview_fn, bind_fn5, typing_fn, toggle_fn, onKey_fn, originFor_fn, showChapterCard_fn, markOverview_fn, refresh_fn, initInteractiveMouse_fn;
+  var ACTS = [
+    { chapters: ["masalah", "metaheuristik"], label: "Krisis Cloud & NP-Hard" },
+    { chapters: ["firefly"], label: "Ordo Kunang-Kunang (FA)" },
+    { chapters: ["bat"], label: "Legiun Kelelawar (BA)" },
+    { chapters: ["model", "cloud"], label: "Perang Penjadwalan Cloud" },
+    { chapters: ["hasil", "penutup"], label: "Sintesis & Analisis Hasil" }
+  ];
+  var _Presenter_instances, fit_fn, buildSpine_fn, buildOverview_fn, bind_fn5, typing_fn, toggle_fn, onKey_fn, showActToast_fn, markOverview_fn, refresh_fn, initInteractiveMouse_fn;
   var Presenter = class {
     constructor(slides2) {
       __privateAdd(this, _Presenter_instances);
@@ -32818,11 +36647,12 @@ void main() {
       this.cleanup = null;
       this.hooks = null;
       this.calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      this.actToast = null;
+      this.actToastTimer = null;
       this.frame = $("frame");
       this.slidesEl = $("slides");
       this.spineEl = $("spine");
       this.counterEl = $("counter");
-      this.chapterCard = $("chapter-card");
       this.notes = $("presenter-notes");
       this.overview = $("overview");
       this.help = $("shortcuts-modal");
@@ -32842,7 +36672,7 @@ void main() {
       __privateMethod(this, _Presenter_instances, initInteractiveMouse_fn).call(this);
       const wanted = location.hash.replace(/^#/, "").trim().toLowerCase();
       const found = this.slides.findIndex((s) => s.id === wanted);
-      this.goTo(found >= 0 ? found : 0, { origin: { x: STAGE_W / 2, y: STAGE_H / 2 } });
+      this.goTo(found >= 0 ? found : 0);
     }
     /* ---------- struktur ---------- */
     /** Bab = kelompok slide berurutan dengan chapter.id sama. */
@@ -32859,15 +36689,15 @@ void main() {
       return slide.beats || 1;
     }
     /* ---------- perpindahan ---------- */
-    next(event) {
+    next() {
       sound.playClick();
       if (this.beat < this.beatsOf(this.slides[this.index]) - 1) this.setBeat(this.beat + 1);
-      else if (this.index < this.slides.length - 1) this.goTo(this.index + 1, { event });
+      else if (this.index < this.slides.length - 1) this.goTo(this.index + 1);
     }
-    prev(event) {
+    prev() {
       sound.playClick();
       if (this.beat > 0) this.setBeat(this.beat - 1);
-      else if (this.index > 0) this.goTo(this.index - 1, { atEnd: true, event });
+      else if (this.index > 0) this.goTo(this.index - 1, { atEnd: true });
     }
     setBeat(beat) {
       this.beat = beat;
@@ -32886,9 +36716,9 @@ void main() {
     }
     /**
      * @param {number} index
-     * @param {{atEnd?:boolean, event?:Event, origin?:{x:number,y:number}}} [opts]
+     * @param {{atEnd?:boolean, event?:Event}} [opts]
      */
-    goTo(index, { atEnd = false, event, origin } = {}) {
+    goTo(index, { atEnd = false } = {}) {
       if (index < 0 || index >= this.slides.length) return;
       try {
         this.cleanup?.();
@@ -32898,24 +36728,17 @@ void main() {
       this.cleanup = null;
       this.hooks = null;
       const slide = this.slides[index];
-      const forward = index >= this.index;
-      const previousChapter = this.current ? this.slides[this.index].chapter.id : null;
-      const at = origin ?? __privateMethod(this, _Presenter_instances, originFor_fn).call(this, event, forward);
+      const previousChapter = this.current?.dataset.chapter;
       this.index = index;
       this.beat = 0;
       document.body.dataset.chapter = slide.chapter.id;
       const leaving = this.current;
-      if (leaving) {
-        leaving.classList.add("leaving");
-        setTimeout(() => leaving.remove(), this.calm ? 0 : LEAVE_MS);
-      }
+      leaving?.remove();
       const el = document.createElement("section");
-      el.className = "slide";
+      el.className = this.calm ? "slide" : "slide slide-fade-in";
       el.id = `slide-${slide.id}`;
       el.setAttribute("aria-label", slide.title);
-      el.style.setProperty("--ox", `${at.x}px`);
-      el.style.setProperty("--oy", `${at.y}px`);
-      if (leaving && !this.calm) el.classList.add("iris");
+      el.dataset.chapter = slide.chapter.id;
       this.slidesEl.appendChild(el);
       this.current = el;
       const result = slide.mount(el, {
@@ -32924,9 +36747,13 @@ void main() {
       });
       if (typeof result === "function") this.cleanup = result;
       if (atEnd && this.beatsOf(slide) > 1) this.setBeat(this.beatsOf(slide) - 1);
-      if (previousChapter && previousChapter !== slide.chapter.id) {
-        __privateMethod(this, _Presenter_instances, showChapterCard_fn).call(this, slide);
-        sound.playHorn();
+      if (!leaving || previousChapter !== slide.chapter.id) {
+        const actIndex = ACTS.findIndex((act2) => act2.chapters.includes(slide.chapter.id));
+        const act = ACTS[actIndex];
+        __privateMethod(this, _Presenter_instances, showActToast_fn).call(this, actIndex + 1, act?.label ?? slide.chapter.label);
+      }
+      if (!this.calm) {
+        setTimeout(() => el.classList.remove("slide-fade-in"), 260);
       }
       $("notes-title").textContent = slide.title;
       $("notes-content").innerHTML = slide.notes || "";
@@ -32939,7 +36766,7 @@ void main() {
   };
   _Presenter_instances = new WeakSet();
   fit_fn = function() {
-    const k = Math.min(innerWidth / STAGE_W, innerHeight / STAGE_H);
+    const k = Math.min(innerWidth / STAGE_W2, innerHeight / STAGE_H2);
     this.frame.style.transform = `translate(-50%, -50%) scale(${k})`;
     this.scale = k;
   };
@@ -32958,8 +36785,14 @@ void main() {
     this.spineEl.addEventListener("click", (e) => {
       const tick = e.target.closest(".spine-tick");
       const node = e.target.closest(".spine-node");
-      if (tick) this.goTo(Number(tick.dataset.slide), { event: e });
-      else if (node) this.goTo(Number(node.dataset.first), { event: e });
+      if (tick) this.goTo(Number(tick.dataset.slide));
+      else if (node) this.goTo(Number(node.dataset.first));
+    });
+    this.spineEl.addEventListener("pointerover", (e) => {
+      if (e.pointerType === "touch") return;
+      const tick = e.target.closest(".spine-tick");
+      const index = Number(tick?.dataset.slide);
+      if (tick && Number.isInteger(index) && index !== this.index) this.goTo(index);
     });
     this.ticks = [...this.spineEl.querySelectorAll(".spine-tick")];
     this.spineChapters = [...this.spineEl.querySelectorAll(".spine-chapter")];
@@ -32977,7 +36810,7 @@ void main() {
       const card = e.target.closest(".ov-card");
       if (card) {
         __privateMethod(this, _Presenter_instances, toggle_fn).call(this, this.overview, false);
-        this.goTo(Number(card.dataset.slide), { event: e });
+        this.goTo(Number(card.dataset.slide));
       } else if (e.target === this.overview) {
         __privateMethod(this, _Presenter_instances, toggle_fn).call(this, this.overview, false);
       }
@@ -32986,8 +36819,8 @@ void main() {
   };
   /* ---------- peristiwa ---------- */
   bind_fn5 = function() {
-    $("btn-prev").addEventListener("click", (e) => this.prev(e));
-    $("btn-next").addEventListener("click", (e) => this.next(e));
+    $("btn-prev").addEventListener("click", () => this.prev());
+    $("btn-next").addEventListener("click", () => this.next());
     $("btn-script").addEventListener("click", () => this.paper.toggle());
     $("btn-notes").addEventListener("click", () => this.toggleNotes());
     $("btn-close-notes").addEventListener("click", () => this.toggleNotes(false));
@@ -33060,21 +36893,22 @@ void main() {
     else if (key === "s" && this.hooks?.step) run(() => this.hooks.step());
     else if (key === "r" && this.hooks?.reset) run(() => this.hooks.reset());
   };
-  /** Titik asal iris dalam koordinat panggung: titik klik bila ada, kalau tidak sisi sesuai arah. */
-  originFor_fn = function(event, forward) {
-    if (event && typeof event.clientX === "number" && event.detail > 0) {
-      const box = this.frame.getBoundingClientRect();
-      return { x: (event.clientX - box.left) / this.scale, y: (event.clientY - box.top) / this.scale };
+  showActToast_fn = function(number, label) {
+    if (!this.actToast) {
+      this.actToast = document.createElement("div");
+      this.actToast.className = "act-toast";
+      this.actToast.setAttribute("aria-live", "polite");
+      this.actToast.setAttribute("aria-atomic", "true");
+      this.actToast.innerHTML = "<strong></strong><span></span>";
     }
-    return { x: forward ? STAGE_W - 120 : 140, y: STAGE_H / 2 };
-  };
-  showChapterCard_fn = function(slide) {
-    if (this.calm) return;
-    const number = this.chapters.findIndex((c) => c.id === slide.chapter.id) + 1;
-    this.chapterCard.innerHTML = `<b>${String(number).padStart(2, "0")}</b><span>${slide.chapter.label}</span>`;
-    this.chapterCard.classList.remove("show");
-    void this.chapterCard.offsetWidth;
-    this.chapterCard.classList.add("show");
+    this.actToast.querySelector("strong").textContent = `ACT ${number}:`;
+    this.actToast.querySelector("span").textContent = label;
+    this.actToast.classList.remove("visible");
+    this.frame.appendChild(this.actToast);
+    void this.actToast.offsetWidth;
+    this.actToast.classList.add("visible");
+    clearTimeout(this.actToastTimer);
+    this.actToastTimer = setTimeout(() => this.actToast?.classList.remove("visible"), 1450);
   };
   markOverview_fn = function() {
     this.ovCards.forEach((c, i) => c.classList.toggle("current", i === this.index));
@@ -33097,8 +36931,8 @@ void main() {
     if (!this.frame) return;
     const canvas = document.createElement("canvas");
     canvas.className = "aoe-mouse-canvas";
-    canvas.width = STAGE_W;
-    canvas.height = STAGE_H;
+    canvas.width = STAGE_W2;
+    canvas.height = STAGE_H2;
     this.frame.appendChild(canvas);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -33117,7 +36951,7 @@ void main() {
       const pos = toStageCoords(e);
       mouse.x = pos.x;
       mouse.y = pos.y;
-      mouse.active = pos.x >= 0 && pos.x <= STAGE_W && pos.y >= 0 && pos.y <= STAGE_H;
+      mouse.active = pos.x >= 0 && pos.x <= STAGE_W2 && pos.y >= 0 && pos.y <= STAGE_H2;
       if (!mouse.active) return;
       if (Math.random() < 0.65) {
         particles.push({
@@ -33136,7 +36970,7 @@ void main() {
     this.frame.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".aoe-modal-backdrop") || e.target.closest(".sky-3d-backdrop")) return;
       const pos = toStageCoords(e);
-      if (pos.x < 0 || pos.x > STAGE_W || pos.y < 0 || pos.y > STAGE_H) return;
+      if (pos.x < 0 || pos.x > STAGE_W2 || pos.y < 0 || pos.y > STAGE_H2) return;
       const ping = document.createElement("div");
       ping.className = "aoe-rts-cursor-ping";
       ping.style.left = `${pos.x}px`;
@@ -33161,7 +36995,7 @@ void main() {
       }
     });
     const renderParticles = () => {
-      ctx.clearRect(0, 0, STAGE_W, STAGE_H);
+      ctx.clearRect(0, 0, STAGE_W2, STAGE_H2);
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.x += p.vx;
@@ -33186,65 +37020,682 @@ void main() {
     renderParticles();
   };
 
-  // src/render/motion.js
-  var STAGE_W2 = 1920;
-  var STAGE_H2 = 1080;
-  var clamp01 = (v) => Math.min(1, Math.max(0, v));
-  var lerp3 = (a, b, t) => a + (b - a) * t;
-  var easeOut = (t) => 1 - (1 - t) ** 3;
-  var easeInOut = (t) => t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
-  var easeBack = (t) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
-  function seg(time, start, length, ease = easeInOut) {
-    return ease(clamp01((time - start) / Math.max(1e-6, length)));
+  // src/render/sprites.js
+  var COLORS = {
+    ink: "#f2f7ff",
+    muted: "#a9bbd6",
+    night: "#050d26",
+    navy: "#0b1a40",
+    blue: "#3b82f6",
+    blueLight: "#93c5fd",
+    cyan: "#22d3ee",
+    cyanLight: "#a5f3fc",
+    purple: "#8b5cf6",
+    purpleLight: "#c4b5fd",
+    pink: "#f472b6",
+    gold: "#fbbf24",
+    lime: "#a3e635",
+    coral: "#fb7185"
+  };
+  var FONT_BODY = '"Manrope", "Sora", sans-serif';
+  var FONT_MONO = '"Red Hat Mono", "Manrope", monospace';
+  function drawText(ctx, text, x, y, options = {}) {
+    const { size = 30, weight = 700, color = COLORS.ink, align = "left", mono = false, alpha = 1, baseline = "middle" } = options;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.font = `${weight} ${size}px ${mono ? FONT_MONO : FONT_BODY}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = baseline;
+    ctx.fillText(text, x, y);
+    ctx.restore();
   }
-  function startCanvasLoop(canvas, draw, { calm = false, width = STAGE_W2, height: height2 = STAGE_H2 } = {}) {
-    let frameId = 0;
-    let t0 = null;
-    let beatT0 = null;
-    let prev = null;
-    let beat = 0;
-    const tick = (now) => {
-      t0 ?? (t0 = now);
-      beatT0 ?? (beatT0 = now);
-      const box = canvas.getBoundingClientRect();
-      const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      const bw = Math.max(10, Math.floor(box.width * ratio));
-      const bh = Math.max(10, Math.floor(box.height * ratio));
-      if (canvas.width !== bw || canvas.height !== bh) {
-        canvas.width = bw;
-        canvas.height = bh;
-      }
-      const ctx = canvas.getContext("2d");
-      ctx.setTransform(bw / width, 0, 0, bh / height2, 0, 0);
-      const dt = prev === null ? 0 : Math.min(0.1, (now - prev) / 1e3);
-      prev = now;
-      draw(ctx, { t: calm ? 0 : (now - t0) / 1e3, bt: calm ? 60 : (now - beatT0) / 1e3, beat, dt });
-      frameId = requestAnimationFrame(tick);
-    };
-    frameId = requestAnimationFrame(tick);
-    return {
-      setBeat(next) {
-        beat = next;
-        beatT0 = null;
-      },
-      stop() {
-        cancelAnimationFrame(frameId);
-        frameId = 0;
-      }
-    };
+  function drawPill(ctx, text, x, y, options = {}) {
+    const { size = 28, weight = 700, color = COLORS.night, fill = COLORS.gold, alpha = 1, mono = false } = options;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.font = `${weight} ${size}px ${mono ? FONT_MONO : FONT_BODY}`;
+    const w = ctx.measureText(text).width + size * 1.2;
+    const h = size * 1.75;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x, y + 1);
+    ctx.restore();
   }
-  function fitCanvas(canvas) {
-    const box = canvas.getBoundingClientRect();
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    const width = Math.max(10, Math.floor(box.width));
-    const height2 = Math.max(10, Math.floor(box.height));
-    if (canvas.width !== Math.floor(width * ratio) || canvas.height !== Math.floor(height2 * ratio)) {
-      canvas.width = Math.floor(width * ratio);
-      canvas.height = Math.floor(height2 * ratio);
+  function drawGlow(ctx, x, y, radius, color) {
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    glow.addColorStop(0, color);
+    glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  function pseudo(i) {
+    const v = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+    return v - Math.floor(v);
+  }
+  var TINTS = {
+    blue: { top: "#071433", mid: "#0b1f55", bottom: "#0a1030", orbs: ["#2563eb", "#22d3ee", "#8b5cf6"] },
+    cyan: { top: "#04142e", mid: "#062a4d", bottom: "#041a2e", orbs: ["#22d3ee", "#3b82f6", "#8b5cf6"] },
+    purple: { top: "#0b0b2e", mid: "#1c1252", bottom: "#0a0a26", orbs: ["#8b5cf6", "#ec4899", "#3b82f6"] },
+    gold: { top: "#0a1233", mid: "#17154a", bottom: "#080f2b", orbs: ["#f59e0b", "#8b5cf6", "#22d3ee"] }
+  };
+  function drawBackdrop(ctx, t, tint = "blue", W = 1920, H = 1080) {
+    const p = TINTS[tint] || TINTS.blue;
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, p.top);
+    grad.addColorStop(0.55, p.mid);
+    grad.addColorStop(1, p.bottom);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    p.orbs.forEach((color, i) => {
+      const ox = W * (0.2 + 0.3 * i) + Math.sin(t * 0.13 + i * 2.1) * 140;
+      const oy = H * (0.35 + 0.18 * Math.sin(i * 1.7)) + Math.cos(t * 0.11 + i) * 90;
+      drawGlow(ctx, ox, oy, 560, hexToRgba(color, 0.2));
+    });
+    ctx.restore();
+    ctx.fillStyle = "rgba(165, 190, 255, 0.07)";
+    for (let gx = 40; gx < W; gx += 80) {
+      for (let gy = 40; gy < H; gy += 80) ctx.fillRect(gx, gy, 3, 3);
     }
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    return { ctx, width, height: height2 };
+    for (let i = 0; i < 70; i++) {
+      const sx = pseudo(i + 1) * W;
+      const sy = pseudo(i + 91) * H * 0.9;
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * (0.5 + pseudo(i + 7)) + i));
+      ctx.fillStyle = `rgba(220, 235, 255, ${(0.18 + 0.5 * pseudo(i + 33)) * tw})`;
+      const s = 1.5 + pseudo(i + 55) * 2.4;
+      ctx.fillRect(sx, sy, s, s);
+    }
+  }
+  function hexToRgba(hex, alpha = 1) {
+    const h = hex.replace("#", "");
+    const n = parseInt(h.length === 3 ? h.replace(/(.)/g, "$1$1") : h, 16);
+    return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
+  }
+  function drawFirefly(ctx, x, y, size, options = {}) {
+    const { glow = 1, color = COLORS.cyan, core = "#f4fdff", t = 0, angle = 0, alpha = 1, crown = false } = options;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.globalCompositeOperation = "lighter";
+    const g = Math.max(0.05, Math.min(1, glow));
+    drawGlow(ctx, x, y, size * (1.2 + 3.6 * g), hexToRgba(color, 0.18 + 0.5 * g));
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    const flap = Math.sin(t * 38 + x * 0.1) * 0.35;
+    ctx.fillStyle = "rgba(200, 235, 255, 0.45)";
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.rotate(side * (0.7 + flap));
+      ctx.beginPath();
+      ctx.ellipse(side * size * 0.45, -size * 0.35, size * 0.55, size * 0.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = "#10243f";
+    ctx.beginPath();
+    ctx.ellipse(0, -size * 0.2, size * 0.2, size * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = hexToRgba(core, 0.35 + 0.65 * g);
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.28, size * 0.3, size * 0.44, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = hexToRgba(color, 0.55 * g);
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.28, size * 0.2, size * 0.32, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    if (crown) drawCrown(ctx, x, y - size * 0.95, size * 0.62);
+  }
+  function drawCrown(ctx, x, y, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.moveTo(-size, size * 0.5);
+    ctx.lineTo(-size, -size * 0.4);
+    ctx.lineTo(-size * 0.5, size * 0.05);
+    ctx.lineTo(0, -size * 0.6);
+    ctx.lineTo(size * 0.5, size * 0.05);
+    ctx.lineTo(size, -size * 0.4);
+    ctx.lineTo(size, size * 0.5);
+    ctx.closePath();
+    ctx.fillStyle = COLORS.gold;
+    ctx.strokeStyle = COLORS.night;
+    ctx.lineWidth = Math.max(1.5, size * 0.12);
+    ctx.lineJoin = "round";
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  function batWing(ctx, side, s, f) {
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.1);
+    ctx.quadraticCurveTo(side * s * 0.9, -s * (0.75 + 0.5 * f), side * s * 1.7, -s * (0.2 + 0.9 * f));
+    ctx.quadraticCurveTo(side * s * 1.4, s * (0.05 - 0.2 * f), side * s * 1.2, s * (0.4 - 0.3 * f));
+    ctx.quadraticCurveTo(side * s * 0.9, s * (0.1 - 0.1 * f), side * s * 0.62, s * 0.5);
+    ctx.quadraticCurveTo(side * s * 0.34, s * 0.22, 0, s * 0.55);
+    ctx.closePath();
+  }
+  function drawBat(ctx, x, y, size, options = {}) {
+    const { color = COLORS.purple, edge = COLORS.purpleLight, flap = 0, angle = 0, alpha = 1, crown = false, glow = 0 } = options;
+    const f = Math.sin(flap);
+    if (glow > 0) {
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      drawGlow(ctx, x, y, size * (2 + 2 * glow), hexToRgba(edge, 0.3 * glow));
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = Math.max(1.5, size * 0.07);
+    ctx.lineJoin = "round";
+    for (const side of [-1, 1]) {
+      batWing(ctx, side, size, f);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.1, size * 0.28, size * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -size * 0.4, size * 0.24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * size * 0.08, -size * 0.58);
+      ctx.lineTo(side * size * 0.3, -size * 0.92);
+      ctx.lineTo(side * size * 0.3, -size * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#fff";
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(side * size * 0.1, -size * 0.43, size * 0.045, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    if (crown) drawCrown(ctx, x, y - size * 1.15, size * 0.55);
+  }
+  function drawEcho(ctx, x, y, progress, color = COLORS.purpleLight, maxRadius = 120, alpha = 1) {
+    if (progress <= 0 || progress >= 1) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    for (const delay of [0, 0.25, 0.5]) {
+      const p = (progress - delay) / (1 - delay);
+      if (p <= 0 || p >= 1) continue;
+      ctx.globalAlpha = (1 - p) * 0.75 * alpha;
+      ctx.lineWidth = Math.max(1.4, maxRadius * 0.035 * (1 - p));
+      ctx.beginPath();
+      ctx.arc(x, y, maxRadius * p, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawStar(ctx, x, y, size, options = {}) {
+    const { glow = true, alpha = 1 } = options;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    if (glow) drawGlow(ctx, x, y, size * 2.8, "rgba(251, 191, 36, 0.62)");
+    ctx.translate(x, y);
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? size : size * 0.44;
+      const a = i * Math.PI / 5 - Math.PI / 2;
+      if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fillStyle = COLORS.gold;
+    ctx.strokeStyle = COLORS.night;
+    ctx.lineWidth = Math.max(1, size * 0.14);
+    ctx.lineJoin = "round";
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  function arcPoint(from, to, bend, p) {
+    const cx = (from.x + to.x) / 2;
+    const cy = (from.y + to.y) / 2 - bend;
+    const q = 1 - p;
+    return {
+      x: q * q * from.x + 2 * q * p * cx + p * p * to.x,
+      y: q * q * from.y + 2 * q * p * cy + p * p * to.y
+    };
+  }
+  function drawArrow(ctx, from, to, options = {}) {
+    const { bend = 0, color = COLORS.ink, width = 4, progress = 1, dashed = false, alpha = 1, head = true } = options;
+    if (progress <= 0) return;
+    const tip = arcPoint(from, to, bend, progress);
+    const before = arcPoint(from, to, bend, Math.max(0, progress - 0.03));
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = "round";
+    if (dashed) ctx.setLineDash([width * 3, width * 2.4]);
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    const steps = Math.max(2, Math.ceil(progress * 28));
+    for (let i = 1; i <= steps; i++) {
+      const pt = arcPoint(from, to, bend, i / steps * progress);
+      ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (head) {
+      const angle = Math.atan2(tip.y - before.y, tip.x - before.x);
+      const len = width * 4;
+      ctx.beginPath();
+      ctx.moveTo(tip.x + Math.cos(angle) * len * 0.3, tip.y + Math.sin(angle) * len * 0.3);
+      ctx.lineTo(tip.x - Math.cos(angle - 0.5) * len, tip.y - Math.sin(angle - 0.5) * len);
+      ctx.lineTo(tip.x - Math.cos(angle + 0.5) * len, tip.y - Math.sin(angle + 0.5) * len);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawCross(ctx, x, y, size, color = COLORS.coral, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(3, size * 0.32);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x - size, y - size);
+    ctx.lineTo(x + size, y + size);
+    ctx.moveTo(x + size, y - size);
+    ctx.lineTo(x - size, y + size);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawCheck(ctx, x, y, size, color = COLORS.lime, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(3, size * 0.32);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(x - size, y);
+    ctx.lineTo(x - size * 0.3, y + size * 0.7);
+    ctx.lineTo(x + size, y - size * 0.7);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawMath(ctx, text, x, y, options = {}) {
+    const { size = 34, color = COLORS.ink, weight = 600, alpha = 1, measureOnly = false } = options;
+    const tokens = [];
+    const re = /([_^])(\{[^}]*\}|.)|([^_^]+)/g;
+    let m;
+    while (m = re.exec(text)) {
+      if (m[3] !== void 0) tokens.push({ t: m[3], mode: "n" });
+      else tokens.push({ t: m[2].replace(/^\{|\}$/g, ""), mode: m[1] === "_" ? "sub" : "sup" });
+    }
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    let cx = x;
+    for (const tok of tokens) {
+      const small = tok.mode !== "n";
+      const s = small ? size * 0.62 : size;
+      ctx.font = `${weight} ${s}px ${FONT_MONO}`;
+      const dy = tok.mode === "sub" ? size * 0.22 : tok.mode === "sup" ? -size * 0.3 : 0;
+      if (!measureOnly) ctx.fillText(tok.t, cx, y + dy);
+      cx += ctx.measureText(tok.t).width;
+    }
+    ctx.restore();
+    return cx - x;
+  }
+
+  // src/render/cloudRenderer.js
+  var TASK_COLORS = ["#3b82f6", "#22d3ee", "#8b5cf6", "#f472b6", "#fbbf24", "#a3e635", "#fb7185", "#38bdf8"];
+  function taskColor(id) {
+    return TASK_COLORS[(id - 1) % TASK_COLORS.length];
+  }
+  function layoutOf(ev) {
+    const map = /* @__PURE__ */ new Map();
+    ev.vmTasks.forEach((list, lane) => {
+      for (const t of list) map.set(t.id, { lane, start: t.start, dur: t.execSec, mi: t.mi });
+    });
+    return map;
+  }
+  var lerp3 = (a, b, t) => a + (b - a) * t;
+  function drawSchedule(ctx, rect, tasks, vms, to, opts = {}) {
+    const { from = null, alpha = 1, tMax, makespan = null, ideal = null, appear = null, queue = null, laneColor = COLORS.blue, labelW = 168, fontScale = 1 } = opts;
+    const laneGap = 14;
+    const laneH = (rect.h - laneGap * (vms.length - 1)) / vms.length;
+    const trackX = rect.x + labelW;
+    const trackW = rect.w - labelW;
+    const secToPx = trackW / tMax;
+    vms.forEach((vm, j) => {
+      const y = rect.y + j * (laneH + laneGap);
+      ctx.fillStyle = hexToRgba(laneColor, 0.1);
+      ctx.beginPath();
+      ctx.roundRect(trackX, y, trackW, laneH, 14);
+      ctx.fill();
+      ctx.strokeStyle = hexToRgba(laneColor, 0.35);
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = hexToRgba(laneColor, 0.22);
+      ctx.beginPath();
+      ctx.roundRect(rect.x, y, labelW - 12, laneH, 14);
+      ctx.fill();
+      drawText(ctx, vm.name, rect.x + 16, y + laneH * 0.36, { size: Math.min(30, laneH * 0.34) * fontScale, color: COLORS.ink });
+      drawText(ctx, `${vm.mips} MIPS`, rect.x + 16, y + laneH * 0.72, { size: Math.min(22, laneH * 0.26) * fontScale, weight: 600, color: COLORS.muted, mono: true });
+    });
+    if (ideal != null) {
+      const ix = trackX + ideal * secToPx;
+      ctx.save();
+      ctx.strokeStyle = hexToRgba(COLORS.lime, 0.85);
+      ctx.lineWidth = 3;
+      ctx.setLineDash([3, 8]);
+      ctx.beginPath();
+      ctx.moveTo(ix, rect.y - 14);
+      ctx.lineTo(ix, rect.y + rect.h + 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+    tasks.forEach((task, idx) => {
+      const target = to.get(task.id);
+      if (!target) return;
+      const prev = from && from.get(task.id) ? from.get(task.id) : target;
+      const lane = lerp3(prev.lane, target.lane, alpha);
+      const start = lerp3(prev.start, target.start, alpha);
+      const dur = lerp3(prev.dur, target.dur, alpha);
+      let bx = trackX + start * secToPx;
+      let by = rect.y + lane * (laneH + laneGap) + 6;
+      let bw = Math.max(4, dur * secToPx - 3);
+      const bh = laneH - 12;
+      let a = 1;
+      if (appear) {
+        const p = appear(idx);
+        if (p <= 0) return;
+        if (p < 1 && queue) {
+          const e = 1 - Math.pow(1 - p, 3);
+          bx = lerp3(queue.x + idx % 4 * 8, bx, e);
+          by = lerp3(queue.y + idx % 5 * 6, by, e) - Math.sin(Math.PI * e) * 120;
+        }
+        a = Math.min(1, p * 3);
+      }
+      const color = taskColor(task.id);
+      ctx.save();
+      ctx.globalAlpha *= a;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 9);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh * 0.4, 9);
+      ctx.fill();
+      if (bw > 38 * fontScale) {
+        drawText(ctx, task.name, bx + bw / 2, by + bh / 2, {
+          size: Math.min(24, bh * 0.46) * fontScale,
+          color: "#050d26",
+          align: "center",
+          weight: 800
+        });
+      }
+      ctx.restore();
+    });
+    if (makespan != null) {
+      const mx = trackX + makespan * secToPx;
+      ctx.save();
+      ctx.strokeStyle = COLORS.gold;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 8]);
+      ctx.beginPath();
+      ctx.moveTo(mx, rect.y - 14);
+      ctx.lineTo(mx, rect.y + rect.h + 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // src/algorithms/cloudScheduling.js
+  var TIE_BREAK = 1e-3;
+  function makeVMs(m = 4) {
+    const names = ["Small", "Medium", "Large", "X-Large"];
+    return Array.from({ length: m }, (_, k) => ({
+      id: k,
+      name: `VM-${k + 1}`,
+      tier: m === 4 ? names[k] : `${85 + Math.round(90 * k / Math.max(1, m - 1))} MIPS`,
+      mips: m === 1 ? 130 : Math.round(85 + 90 * k / (m - 1))
+    }));
+  }
+  var DEFAULT_VMS = makeVMs(4);
+  function generateTasks(count = 16, seed = 2026) {
+    const rng = createRandom(seed);
+    return Array.from({ length: count }, (_, idx) => ({
+      id: idx + 1,
+      name: `T${idx + 1}`,
+      mi: rng.int(140, 620)
+    }));
+  }
+  function decodeSchedule(vector, vmCount) {
+    const maxIdx = vmCount - 1;
+    return vector.map((val) => {
+      const idx = Math.floor(val);
+      return idx < 0 ? 0 : idx > maxIdx ? maxIdx : idx;
+    });
+  }
+  function evaluateAssignment(assignment, tasks, vms = DEFAULT_VMS) {
+    const vmLoads = vms.map(() => 0);
+    const vmTasks = vms.map(() => []);
+    for (let i = 0; i < tasks.length; i++) {
+      const j = assignment[i];
+      const execSec = tasks[i].mi / vms[j].mips;
+      vmTasks[j].push({ ...tasks[i], execSec, start: vmLoads[j] });
+      vmLoads[j] += execSec;
+    }
+    let makespan = 0;
+    let sum = 0;
+    for (const l of vmLoads) {
+      if (l > makespan) makespan = l;
+      sum += l;
+    }
+    const mean = sum / vms.length;
+    let variance = 0;
+    for (const l of vmLoads) variance += (l - mean) * (l - mean);
+    const imbalanceStd = Math.sqrt(variance / vms.length);
+    return {
+      assignment,
+      vmLoads,
+      vmTasks,
+      makespan,
+      imbalanceStd,
+      fitness: makespan + TIE_BREAK * imbalanceStd
+    };
+  }
+  function evaluateSchedule(vector, tasks, vms = DEFAULT_VMS) {
+    return evaluateAssignment(decodeSchedule(vector, vms.length), tasks, vms);
+  }
+  function idealMakespan(tasks, vms = DEFAULT_VMS) {
+    const totalMI = tasks.reduce((s, t) => s + t.mi, 0);
+    const totalMips = vms.reduce((s, v) => s + v.mips, 0);
+    return totalMI / totalMips;
+  }
+  function roundRobin(tasks, vms = DEFAULT_VMS) {
+    return evaluateAssignment(tasks.map((_, i) => i % vms.length), tasks, vms);
+  }
+  function minMin(tasks, vms = DEFAULT_VMS) {
+    const ready = vms.map(() => 0);
+    const assignment = new Array(tasks.length).fill(-1);
+    let left = tasks.length;
+    while (left > 0) {
+      let bestTask = -1;
+      let bestVm = -1;
+      let bestCt = Infinity;
+      for (let i = 0; i < tasks.length; i++) {
+        if (assignment[i] >= 0) continue;
+        let minCt = Infinity;
+        let minVm = -1;
+        for (let j = 0; j < vms.length; j++) {
+          const ct = ready[j] + tasks[i].mi / vms[j].mips;
+          if (ct < minCt) {
+            minCt = ct;
+            minVm = j;
+          }
+        }
+        if (minCt < bestCt) {
+          bestCt = minCt;
+          bestTask = i;
+          bestVm = minVm;
+        }
+      }
+      assignment[bestTask] = bestVm;
+      ready[bestVm] = bestCt;
+      left--;
+    }
+    return evaluateAssignment(assignment, tasks, vms);
+  }
+  function sharedInitialPopulation(n, m, populationSize, seed) {
+    const rng = createRandom(Number(seed));
+    return Array.from(
+      { length: populationSize },
+      () => Array.from({ length: n }, () => rng.range(0, m - 1e-6))
+    );
+  }
+  var CLOUD_DEFAULTS = {
+    n: 16,
+    m: 4,
+    populationSize: 28,
+    maxIterations: 40,
+    seed: 42,
+    workloadSeed: 2026,
+    fa: { beta0: 1, gamma: 2, alpha: 0.25, alphaDecay: 0.96 },
+    ba: { fmin: 0, fmax: 1.5, loudness: 1, pulseRate: 0.5, alphaA: 0.9, gammaR: 0.9, localScale: 0.1 }
+  };
+  var CloudScheduleOptimizer = class {
+    constructor(options = {}) {
+      this.configure(options);
+    }
+    configure(options = {}) {
+      const o = { ...CLOUD_DEFAULTS, ...options };
+      this.n = o.n;
+      this.m = o.m;
+      this.vms = makeVMs(o.m);
+      this.tasks = options.tasks || generateTasks(o.n, o.workloadSeed);
+      this.populationSize = o.populationSize;
+      this.maxIterations = o.maxIterations;
+      this.seed = o.seed;
+      this.faParams = { ...CLOUD_DEFAULTS.fa, ...options.fa || {} };
+      this.baParams = { ...CLOUD_DEFAULTS.ba, ...options.ba || {} };
+      this.reset();
+    }
+    reset() {
+      const tasks = this.tasks;
+      const vms = this.vms;
+      const fitness = (x) => evaluateSchedule(x, tasks, vms).fitness;
+      const common2 = {
+        dim: tasks.length,
+        lo: 0,
+        hi: vms.length - 1e-6,
+        fitness,
+        populationSize: this.populationSize,
+        maxIterations: this.maxIterations,
+        seed: this.seed,
+        initial: sharedInitialPopulation(tasks.length, vms.length, this.populationSize, this.seed)
+      };
+      this.fa = new FAEngine({ ...common2, ...this.faParams });
+      this.ba = new BAEngine({ ...common2, ...this.baParams });
+      this.baselineRR = roundRobin(tasks, vms);
+      this.baselineMinMin = minMin(tasks, vms);
+      this.ideal = idealMakespan(tasks, vms);
+    }
+    get done() {
+      return this.fa.done && this.ba.done;
+    }
+    step() {
+      this.fa.runIteration();
+      this.ba.runIteration();
+      return this.getState();
+    }
+    run() {
+      while (!this.done) this.step();
+      return this.getState();
+    }
+    getState() {
+      const fa = this.fa.getState();
+      const ba = this.ba.getState();
+      return {
+        iteration: Math.max(fa.iteration, ba.iteration),
+        maxIterations: this.maxIterations,
+        fa,
+        ba,
+        evalFa: evaluateSchedule(fa.best.x, this.tasks, this.vms),
+        evalBa: evaluateSchedule(ba.best.x, this.tasks, this.vms),
+        baselineRR: this.baselineRR,
+        baselineMinMin: this.baselineMinMin,
+        ideal: this.ideal,
+        done: this.done
+      };
+    }
+  };
+  function runWorkload(w, { n = 16, m = 4, populationSize = 28, maxIterations = 40, seed = 42 } = {}) {
+    const tasks = generateTasks(n, 3e3 + w * 17);
+    const opt = new CloudScheduleOptimizer({ n, m, tasks, populationSize, maxIterations, seed: seed + w });
+    const st = opt.run();
+    return {
+      workload: w + 1,
+      ideal: opt.ideal,
+      rr: opt.baselineRR.makespan,
+      minmin: opt.baselineMinMin.makespan,
+      fa: st.evalFa.makespan,
+      ba: st.evalBa.makespan
+    };
+  }
+  function runExperiment({ workloads = 10, onWorkload, ...rest } = {}) {
+    const results = [];
+    for (let w = 0; w < workloads; w++) {
+      const row = runWorkload(w, rest);
+      results.push(row);
+      if (onWorkload) onWorkload(row, results);
+    }
+    return results;
+  }
+  function summarizeExperiment(rows) {
+    const avg = (key) => rows.reduce((s, r) => s + r[key], 0) / rows.length;
+    const ratio = (key) => rows.reduce((s, r) => s + r[key] / r.ideal, 0) / rows.length;
+    let faWins = 0;
+    let baWins = 0;
+    let ties = 0;
+    for (const r of rows) {
+      if (Math.abs(r.fa - r.ba) < 1e-9) ties++;
+      else if (r.fa < r.ba) faWins++;
+      else baWins++;
+    }
+    return {
+      count: rows.length,
+      avg: { rr: avg("rr"), minmin: avg("minmin"), fa: avg("fa"), ba: avg("ba"), ideal: avg("ideal") },
+      ratio: { rr: ratio("rr"), minmin: ratio("minmin"), fa: ratio("fa"), ba: ratio("ba") },
+      faWins,
+      baWins,
+      ties,
+      gainFaVsRR: (1 - avg("fa") / avg("rr")) * 100,
+      gainBaVsRR: (1 - avg("ba") / avg("rr")) * 100
+    };
   }
 
   // src/slides/frame.js
@@ -33646,12 +38097,12 @@ void main() {
     if (beat === 1) {
       SWARM.forEach((a, i) => {
         const settle = seg(bt, 0, 1.8, easeInOut);
-        let u = lerp3(a.u0, a.uLoc, settle);
+        let u = lerp2(a.u0, a.uLoc, settle);
         let lift = 0;
         const hopStart = 3 + a.delay;
         if (bt > hopStart) {
           const p = seg(bt, hopStart, 1.3, easeInOut);
-          u = lerp3(a.uLoc, a.uFin, p);
+          u = lerp2(a.uLoc, a.uFin, p);
           lift = Math.sin(Math.PI * p) * 220;
         }
         const isScout = i === 0;
@@ -33694,7 +38145,7 @@ void main() {
       ctx.beginPath();
       ctx.roundRect(sx, sy - 9, sw, 18, 9);
       ctx.fill();
-      const mark = explore ? lerp3(0.05, 0.45, k) : lerp3(0.55, 0.95, k);
+      const mark = explore ? lerp2(0.05, 0.45, k) : lerp2(0.55, 0.95, k);
       ctx.fillStyle = explore ? COLORS.blue : COLORS.gold;
       ctx.beginPath();
       ctx.arc(sx + sw * mark, sy, 20, 0, Math.PI * 2);
@@ -33752,7 +38203,7 @@ void main() {
       height: height2,
       scale,
       worldToScreen: (wx, wy) => ({ x: cx + (wx - mid) * scale, y: cy - (wy - mid) * scale }),
-      screenToWorld: (px, py) => ({ x: mid + (px - cx) / scale, y: mid - (py - cy) / scale }),
+      screenToWorld: (px2, py2) => ({ x: mid + (px2 - cx) / scale, y: mid - (py2 - cy) / scale }),
       worldDistToPx: (d) => d * scale
     };
   }
@@ -33808,7 +38259,7 @@ void main() {
     small.height = h;
     const sctx = small.getContext("2d");
     const image = sctx.createImageData(w, h);
-    const px = image.data;
+    const px2 = image.data;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
@@ -33830,10 +38281,10 @@ void main() {
           b = mix(b, palette.line[2], Math.min(1, strength));
         }
         const o2 = i * 4;
-        px[o2] = r;
-        px[o2 + 1] = g;
-        px[o2 + 2] = b;
-        px[o2 + 3] = 255;
+        px2[o2] = r;
+        px2[o2 + 1] = g;
+        px2[o2 + 2] = b;
+        px2[o2 + 3] = 255;
       }
     }
     sctx.putImageData(image, 0, 0);
@@ -34088,129 +38539,6 @@ void main() {
     this.glideMs = duration;
   };
   _loop = new WeakMap();
-
-  // src/render/chart.js
-  function formatTick(val) {
-    if (val === 0) return "0";
-    if (val >= 100) return val.toFixed(0);
-    if (val >= 10) return val.toFixed(0);
-    if (val >= 1) return val.toFixed(1);
-    if (val >= 0.1) return val.toFixed(2);
-    return val.toExponential(0);
-  }
-  function renderConvergenceChart(canvas, seriesList, options = {}) {
-    if (!canvas) return;
-    const { ctx, width, height: height2 } = fitCanvas(canvas);
-    ctx.clearRect(0, 0, width, height2);
-    const u = Math.max(0.55, Math.min(1.5, Math.min(width / 610, height2 / 220)));
-    const padLeft = 64 * u;
-    const padRight = 70 * u;
-    const hasLegend = options.legend !== false && seriesList.length > 1;
-    const padTop = (hasLegend ? 50 : 22) * u;
-    const padBottom = 34 * u;
-    const plotW = Math.max(20, width - padLeft - padRight);
-    const plotH = Math.max(20, height2 - padTop - padBottom);
-    let maxIter = Math.max(10, options.maxIterations || 20);
-    let maxVal = 0;
-    let minVal = Infinity;
-    for (const s of seriesList) {
-      for (const pt of s.data) {
-        if (pt.iteration > maxIter) maxIter = pt.iteration;
-        if (pt.bestFitness > maxVal) maxVal = pt.bestFitness;
-        if (pt.bestFitness < minVal) minVal = pt.bestFitness;
-      }
-    }
-    const yMin = options.yMin ?? 0;
-    const yTop = options.yMax ?? (maxVal <= yMin + 1e-6 ? yMin + 1 : yMin + (maxVal - yMin) * 1.08);
-    const ySpan = Math.max(1e-9, yTop - yMin);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(169, 187, 214, 0.2)";
-    ctx.font = `600 ${16 * u}px "Red Hat Mono", "Manrope", monospace`;
-    ctx.fillStyle = "#a9bbd6";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    for (let i = 0; i <= 2; i++) {
-      const ratio = i / 2;
-      const py = padTop + plotH - ratio * plotH;
-      ctx.beginPath();
-      ctx.moveTo(padLeft, py);
-      ctx.lineTo(padLeft + plotW, py);
-      ctx.stroke();
-      ctx.fillText(formatTick(yMin + ratio * ySpan), padLeft - 10 * u, py);
-    }
-    ctx.textAlign = "center";
-    for (let i = 0; i <= 4; i++) {
-      const iterVal = Math.round(i / 4 * maxIter);
-      ctx.fillText(`${iterVal}`, padLeft + iterVal / maxIter * plotW, padTop + plotH + 19 * u);
-    }
-    const labels = [];
-    for (const s of seriesList) {
-      if (!s.data || s.data.length === 0) continue;
-      const color = s.color || "#22d3ee";
-      const points = s.data.map((pt) => ({
-        px: padLeft + pt.iteration / maxIter * plotW,
-        py: padTop + plotH - Math.max(0, Math.min(1, (pt.bestFitness - yMin) / ySpan)) * plotH
-      }));
-      if (seriesList.length === 1 && points.length > 1) {
-        ctx.beginPath();
-        ctx.moveTo(points[0].px, padTop + plotH);
-        points.forEach((p) => ctx.lineTo(p.px, p.py));
-        ctx.lineTo(points[points.length - 1].px, padTop + plotH);
-        ctx.closePath();
-        ctx.fillStyle = s.fill || "rgba(34, 211, 238, 0.16)";
-        ctx.fill();
-      }
-      ctx.save();
-      ctx.shadowColor = color;
-      ctx.shadowBlur = s.dashed ? 0 : 10 * u;
-      if (s.dashed) ctx.setLineDash([10 * u, 8 * u]);
-      ctx.beginPath();
-      points.forEach((p, idx) => {
-        if (idx === 0) ctx.moveTo(p.px, p.py);
-        else ctx.lineTo(p.px, p.py);
-      });
-      ctx.strokeStyle = color;
-      ctx.lineWidth = (s.width || 3.4) * u;
-      ctx.lineJoin = "round";
-      ctx.stroke();
-      ctx.restore();
-      const last = points[points.length - 1];
-      if (!s.dashed) {
-        ctx.beginPath();
-        ctx.arc(last.px, last.py, 6 * u, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-      }
-      labels.push({ y: last.py, x: last.px, color, text: s.data[s.data.length - 1].bestFitness });
-    }
-    labels.sort((a, b) => a.y - b.y);
-    for (let i = 1; i < labels.length; i++) {
-      if (labels[i].y - labels[i - 1].y < 20 * u) labels[i].y = labels[i - 1].y + 20 * u;
-    }
-    ctx.textAlign = "left";
-    ctx.font = `700 ${17 * u}px "Red Hat Mono", "Manrope", monospace`;
-    const dec = options.decimals ?? 2;
-    for (const l of labels) {
-      ctx.fillStyle = l.color;
-      ctx.fillText(l.text.toFixed(dec), Math.min(l.x + 12 * u, width - padRight + 6 * u), l.y);
-    }
-    if (hasLegend) {
-      ctx.font = `700 ${18 * u}px "Manrope", sans-serif`;
-      let lx = padLeft + 12 * u;
-      for (const s of seriesList) {
-        ctx.fillStyle = s.color;
-        ctx.beginPath();
-        ctx.arc(lx, 20 * u, 6 * u, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#f2f7ff";
-        ctx.textAlign = "left";
-        ctx.fillText(s.label, lx + 14 * u, 20 * u);
-        lx += ctx.measureText(s.label).width + 52 * u;
-      }
-    }
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-  }
 
   // src/slides/console.js
   var OBJECTIVE_BUTTONS = [
@@ -34580,7 +38908,7 @@ void main() {
         const blink = 0.3 + 0.7 * Math.abs(Math.sin(t * (0.7 + hash01(i + 17)) + i));
         const q = quality(p);
         let glow = blink;
-        if (beat >= 1) glow = lerp3(blink, 0.1 + 0.9 * q, beat === 1 ? seg(bt, 0.2, 1.2) : 1);
+        if (beat >= 1) glow = lerp2(blink, 0.1 + 0.9 * q, beat === 1 ? seg(bt, 0.2, 1.2) : 1);
         drawFirefly(ctx, p.x, p.y, 17, { glow, t, color: beat >= 1 && q > 0.7 ? COLORS.gold : COLORS.cyan, core: beat >= 1 && q > 0.7 ? "#fff6d6" : "#f4fdff" });
       });
       if (beat === 1) {
@@ -34618,27 +38946,27 @@ void main() {
   function drawFaCharacter(ctx, { t }, p, pointer) {
     ctx.clearRect(0, 0, LAB_W, LAB_H);
     drawBackdrop(ctx, t, "cyan", LAB_W, LAB_H);
-    const px = 110;
-    const py = 120;
+    const px2 = 110;
+    const py2 = 120;
     const pw = 820;
     const ph = 330;
-    const yOf = (b) => py + ph - b / 1.5 * ph;
-    const xOf = (r2) => px + r2 * pw;
-    drawText(ctx, "Daya tarik \u03B2 menurun seiring jarak r", px, 38, { size: 32, color: COLORS.ink });
-    drawText(ctx, "Gerakkan kursor di grafik untuk memilih jarak", px, 78, { size: 22, color: COLORS.muted, weight: 600 });
+    const yOf = (b) => py2 + ph - b / 1.5 * ph;
+    const xOf = (r2) => px2 + r2 * pw;
+    drawText(ctx, "Daya tarik \u03B2 menurun seiring jarak r", px2, 38, { size: 32, color: COLORS.ink });
+    drawText(ctx, "Gerakkan kursor di grafik untuk memilih jarak", px2, 78, { size: 22, color: COLORS.muted, weight: 600 });
     ctx.strokeStyle = "rgba(169,187,214,0.25)";
     ctx.lineWidth = 2;
     [0, 0.5, 1, 1.5].forEach((b) => {
       ctx.beginPath();
-      ctx.moveTo(px, yOf(b));
-      ctx.lineTo(px + pw, yOf(b));
+      ctx.moveTo(px2, yOf(b));
+      ctx.lineTo(px2 + pw, yOf(b));
       ctx.stroke();
-      drawText(ctx, b.toFixed(1), px - 14, yOf(b), { size: 21, color: COLORS.muted, align: "right", mono: true, weight: 600 });
+      drawText(ctx, b.toFixed(1), px2 - 14, yOf(b), { size: 21, color: COLORS.muted, align: "right", mono: true, weight: 600 });
     });
     [0, 0.25, 0.5, 0.75, 1].forEach((r2) => {
-      drawText(ctx, r2.toFixed(2), xOf(r2), py + ph + 28, { size: 21, color: COLORS.muted, align: "center", mono: true, weight: 600 });
+      drawText(ctx, r2.toFixed(2), xOf(r2), py2 + ph + 28, { size: 21, color: COLORS.muted, align: "center", mono: true, weight: 600 });
     });
-    drawText(ctx, "jarak ternormalisasi r", px + pw / 2, py + ph + 66, { size: 23, color: COLORS.muted, align: "center", weight: 600 });
+    drawText(ctx, "jarak ternormalisasi r", px2 + pw / 2, py2 + ph + 66, { size: 23, color: COLORS.muted, align: "center", weight: 600 });
     const curve = new Path2D();
     for (let i = 0; i <= 120; i++) {
       const r2 = i / 120;
@@ -34646,16 +38974,16 @@ void main() {
       if (i === 0) curve.moveTo(xOf(r2), yOf(b));
       else curve.lineTo(xOf(r2), yOf(b));
     }
-    const area = new Path2D();
-    area.addPath(curve);
-    area.lineTo(xOf(1), yOf(0));
-    area.lineTo(xOf(0), yOf(0));
-    area.closePath();
-    const fade = ctx.createLinearGradient(0, py, 0, py + ph);
+    const area2 = new Path2D();
+    area2.addPath(curve);
+    area2.lineTo(xOf(1), yOf(0));
+    area2.lineTo(xOf(0), yOf(0));
+    area2.closePath();
+    const fade = ctx.createLinearGradient(0, py2, 0, py2 + ph);
     fade.addColorStop(0, "rgba(34,211,238,0.5)");
     fade.addColorStop(1, "rgba(34,211,238,0.04)");
     ctx.fillStyle = fade;
-    ctx.fill(area);
+    ctx.fill(area2);
     ctx.save();
     ctx.shadowColor = FA_COLOR;
     ctx.shadowBlur = 16;
@@ -34664,8 +38992,8 @@ void main() {
     ctx.lineJoin = "round";
     ctx.stroke(curve);
     ctx.restore();
-    const overChart = pointer.active && pointer.x > px && pointer.x < px + pw && pointer.y > py - 40 && pointer.y < py + ph + 80;
-    const r = overChart ? clamp01((pointer.x - px) / pw) : 0.5 - 0.5 * Math.cos(t * 0.55);
+    const overChart = pointer.active && pointer.x > px2 && pointer.x < px2 + pw && pointer.y > py2 - 40 && pointer.y < py2 + ph + 80;
+    const r = overChart ? clamp01((pointer.x - px2) / pw) : 0.5 - 0.5 * Math.cos(t * 0.55);
     const beta = attractiveness(p.beta0, p.gamma, r);
     ctx.strokeStyle = hexToRgba(COLORS.gold, 0.8);
     ctx.lineWidth = 3;
@@ -34680,7 +39008,7 @@ void main() {
     ctx.beginPath();
     ctx.arc(xOf(r), yOf(beta), 11, 0, Math.PI * 2);
     ctx.fill();
-    drawPill(ctx, `r = ${r.toFixed(2)}  \u2192  \u03B2 = ${beta.toFixed(2)}`, Math.min(px + pw - 150, Math.max(px + 150, xOf(r))), yOf(beta) - 52, { size: 23, fill: COLORS.gold, mono: true });
+    drawPill(ctx, `r = ${r.toFixed(2)}  \u2192  \u03B2 = ${beta.toFixed(2)}`, Math.min(px2 + pw - 150, Math.max(px2 + 150, xOf(r))), yOf(beta) - 52, { size: 23, fill: COLORS.gold, mono: true });
     const dx = 1010;
     const dy = 300;
     const worldW = 560;
@@ -34817,8 +39145,8 @@ void main() {
             dashed: beat === 1
           });
           if (beat >= 2) {
-            const mx = lerp3(screen[FOCUS].x, screen[j].x, 0.55);
-            const my = lerp3(screen[FOCUS].y, screen[j].y, 0.55);
+            const mx = lerp2(screen[FOCUS].x, screen[j].x, 0.55);
+            const my = lerp2(screen[FOCUS].y, screen[j].y, 0.55);
             drawPill(ctx, `\u03B2 ${b.toFixed(2)}`, mx, my - 26, { size: 22, fill: COLORS.night, color: COLORS.cyanLight, mono: true, alpha: seg(bt, 0.2 + 0.1 * k, 0.5) });
           }
         });
@@ -34828,7 +39156,7 @@ void main() {
         const best = f.f === Math.min(...DEMO_FLIES.map((d) => d.f));
         if (i === FOCUS && beat >= 3) return;
         drawFirefly(ctx, screen[i].x, screen[i].y, 24, {
-          glow: beat === 0 ? lerp3(0.5, glow, seg(bt, 0, 1)) : glow,
+          glow: beat === 0 ? lerp2(0.5, glow, seg(bt, 0, 1)) : glow,
           t,
           color: best ? COLORS.gold : COLORS.cyan,
           core: best ? "#fff6d6" : "#f4fdff",
@@ -34864,7 +39192,7 @@ void main() {
           ctx.lineWidth = 5;
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
-          cur = { x: lerp3(a.x, b.x, local), y: lerp3(a.y, b.y, local) };
+          cur = { x: lerp2(a.x, b.x, local), y: lerp2(a.y, b.y, local) };
           ctx.lineTo(cur.x, cur.y);
           ctx.stroke();
         }
@@ -34881,7 +39209,7 @@ void main() {
           ctx.arc(afterMove.x, afterMove.y, 70 * randA, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
-          cur = { x: lerp3(afterMove.x, wp.x, randA), y: lerp3(afterMove.y, wp.y, randA) };
+          cur = { x: lerp2(afterMove.x, wp.x, randA), y: lerp2(afterMove.y, wp.y, randA) };
         }
         drawFirefly(ctx, cur.x, cur.y, 24, { glow: 0.45, t });
         drawPill(ctx, "posisi baru = tarikan + langkah acak", PANEL.x + PANEL.w / 2, PANEL.y + PANEL.h - 40, {
@@ -35020,8 +39348,8 @@ void main() {
       const k = easeInOut(clamp01(tau / (T - 1.2)));
       const start = { x: 260, y: 790 };
       const end = { x: 1330, y: 710 };
-      const bx = lerp3(start.x, end.x, k);
-      const by = lerp3(start.y, end.y, k) + Math.sin(tau * 2) * 8;
+      const bx = lerp2(start.x, end.x, k);
+      const by = lerp2(start.y, end.y, k) + Math.sin(tau * 2) * 8;
       const rate0 = 1.1;
       const rate1 = 7;
       const Tm = T - 1.2;
@@ -35032,8 +39360,8 @@ void main() {
         const emit = (-rate0 + Math.sqrt(rate0 * rate0 + 4 * a * n)) / (2 * a);
         const kk = easeInOut(clamp01(emit / Tm));
         const loud = 1 - 0.75 * kk;
-        const ex = lerp3(start.x, end.x, kk);
-        const ey = lerp3(start.y, end.y, kk);
+        const ex = lerp2(start.x, end.x, kk);
+        const ey = lerp2(start.y, end.y, kk);
         drawEcho(ctx, ex, ey, clamp01((tau - emit) / 0.9), COLORS.purpleLight, 80 + 190 * loud, loud);
       }
       drawBat(ctx, bx, by, 34, { flap: t * 12, angle: -0.1 });
@@ -35048,7 +39376,7 @@ void main() {
       const ang = i / 8 * Math.PI * 2 + 0.4;
       const rad = 90 + i % 3 * 55;
       const target = { x: PREY.x - 230 + Math.cos(ang) * rad, y: PREY.y + Math.sin(ang) * rad };
-      return { x: lerp3(w.x, target.x, conv), y: lerp3(w.y, target.y, conv), d: Math.hypot(target.x - PREY.x, target.y - PREY.y) };
+      return { x: lerp2(w.x, target.x, conv), y: lerp2(w.y, target.y, conv), d: Math.hypot(target.x - PREY.x, target.y - PREY.y) };
     });
     const leader = bats.reduce((m, b, i) => b.d < bats[m].d ? i : m, 0);
     bats.forEach((b, i) => {
@@ -35100,27 +39428,27 @@ void main() {
   function drawBaCharacter(ctx, { t }, p, pointer) {
     ctx.clearRect(0, 0, LAB_W, LAB_H);
     drawBackdrop(ctx, t, "purple", LAB_W, LAB_H);
-    const px = 110;
-    const py = 120;
+    const px2 = 110;
+    const py2 = 120;
     const pw = 820;
     const ph = 330;
     const maxT = 30;
     const maxY = Math.max(1.2, p.loudness * 1.1);
-    const yOf = (v) => py + ph - v / maxY * ph;
-    const xOf = (k2) => px + k2 / maxT * pw;
-    drawText(ctx, "A turun dan r naik seiring iterasi", px, 38, { size: 32, color: COLORS.ink });
-    drawText(ctx, "Gerakkan kursor di grafik untuk memilih iterasi", px, 78, { size: 22, color: COLORS.muted, weight: 600 });
+    const yOf = (v) => py2 + ph - v / maxY * ph;
+    const xOf = (k2) => px2 + k2 / maxT * pw;
+    drawText(ctx, "A turun dan r naik seiring iterasi", px2, 38, { size: 32, color: COLORS.ink });
+    drawText(ctx, "Gerakkan kursor di grafik untuk memilih iterasi", px2, 78, { size: 22, color: COLORS.muted, weight: 600 });
     ctx.strokeStyle = "rgba(169,187,214,0.25)";
     ctx.lineWidth = 2;
     [0, 0.5, 1, 1.5, 2].filter((v) => v <= maxY + 0.01).forEach((v) => {
       ctx.beginPath();
-      ctx.moveTo(px, yOf(v));
-      ctx.lineTo(px + pw, yOf(v));
+      ctx.moveTo(px2, yOf(v));
+      ctx.lineTo(px2 + pw, yOf(v));
       ctx.stroke();
-      drawText(ctx, v.toFixed(1), px - 14, yOf(v), { size: 21, color: COLORS.muted, align: "right", mono: true, weight: 600 });
+      drawText(ctx, v.toFixed(1), px2 - 14, yOf(v), { size: 21, color: COLORS.muted, align: "right", mono: true, weight: 600 });
     });
-    [0, 10, 20, 30].forEach((k2) => drawText(ctx, String(k2), xOf(k2), py + ph + 28, { size: 21, color: COLORS.muted, align: "center", mono: true, weight: 600 }));
-    drawText(ctx, "iterasi (jumlah penerimaan) t", px + pw / 2, py + ph + 66, { size: 23, color: COLORS.muted, align: "center", weight: 600 });
+    [0, 10, 20, 30].forEach((k2) => drawText(ctx, String(k2), xOf(k2), py2 + ph + 28, { size: 21, color: COLORS.muted, align: "center", mono: true, weight: 600 }));
+    drawText(ctx, "iterasi (jumlah penerimaan) t", px2 + pw / 2, py2 + ph + 66, { size: 23, color: COLORS.muted, align: "center", weight: 600 });
     const curveA = new Path2D();
     const curveR = new Path2D();
     for (let k2 = 0; k2 <= maxT; k2 += 0.5) {
@@ -35145,18 +39473,18 @@ void main() {
     ctx.strokeStyle = COLORS.blueLight;
     ctx.stroke(curveR);
     ctx.restore();
-    drawPill(ctx, "A kenyaringan", px + pw - 330, py + 62, { size: 21, fill: COLORS.pink, color: COLORS.night });
-    drawPill(ctx, "r laju pulsa", px + pw - 110, py + 62, { size: 21, fill: COLORS.blueLight, color: COLORS.night });
-    const overChart = pointer.active && pointer.x > px && pointer.x < px + pw && pointer.y > py - 40 && pointer.y < py + ph + 80;
-    const k = overChart ? clamp01((pointer.x - px) / pw) * maxT : (0.5 - 0.5 * Math.cos(t * 0.45)) * maxT;
+    drawPill(ctx, "A kenyaringan", px2 + pw - 330, py2 + 62, { size: 21, fill: COLORS.pink, color: COLORS.night });
+    drawPill(ctx, "r laju pulsa", px2 + pw - 110, py2 + 62, { size: 21, fill: COLORS.blueLight, color: COLORS.night });
+    const overChart = pointer.active && pointer.x > px2 && pointer.x < px2 + pw && pointer.y > py2 - 40 && pointer.y < py2 + ph + 80;
+    const k = overChart ? clamp01((pointer.x - px2) / pw) * maxT : (0.5 - 0.5 * Math.cos(t * 0.45)) * maxT;
     const A = loudnessAt(p.loudness, p.alphaA, k);
     const r = pulseRateAt(p.pulseRate, p.gammaR, k);
     ctx.strokeStyle = hexToRgba(COLORS.gold, 0.8);
     ctx.lineWidth = 3;
     ctx.setLineDash([8, 8]);
     ctx.beginPath();
-    ctx.moveTo(xOf(k), py);
-    ctx.lineTo(xOf(k), py + ph);
+    ctx.moveTo(xOf(k), py2);
+    ctx.lineTo(xOf(k), py2 + ph);
     ctx.stroke();
     ctx.setLineDash([]);
     [[A, COLORS.pink], [r, COLORS.blueLight]].forEach(([v, c]) => {
@@ -35166,7 +39494,7 @@ void main() {
       ctx.arc(xOf(k), yOf(v), 10, 0, Math.PI * 2);
       ctx.fill();
     });
-    drawPill(ctx, `t = ${k.toFixed(0)}   A = ${A.toFixed(2)}   r = ${r.toFixed(2)}`, Math.min(px + pw - 200, Math.max(px + 200, xOf(k))), py - 6, {
+    drawPill(ctx, `t = ${k.toFixed(0)}   A = ${A.toFixed(2)}   r = ${r.toFixed(2)}`, Math.min(px2 + pw - 200, Math.max(px2 + 200, xOf(k))), py2 - 6, {
       size: 21,
       fill: COLORS.gold,
       mono: true
@@ -35293,7 +39621,7 @@ void main() {
           drawEcho(ctx, from.x, from.y, (t * 0.5 + i * 0.25) % 1, COLORS.purpleLight, 80, 0.8);
           drawArrow(ctx, from, g, { color: COLORS.purpleLight, width: 5, progress: staggered, dashed: true });
           if (staggered > 0.6) {
-            drawPill(ctx, `f = ${tr.freq.toFixed(1)}`, lerp3(from.x, g.x, 0.5), lerp3(from.y, g.y, 0.5) - 28, { size: 20, fill: COLORS.night, color: COLORS.purpleLight, mono: true });
+            drawPill(ctx, `f = ${tr.freq.toFixed(1)}`, lerp2(from.x, g.x, 0.5), lerp2(from.y, g.y, 0.5) - 28, { size: 20, fill: COLORS.night, color: COLORS.purpleLight, mono: true });
           }
         } else if (beat === 1) {
           if (usesLocal) {
@@ -35348,7 +39676,7 @@ void main() {
         if (beat === 2 && tr.accepted) {
           const d = S(tr.final);
           const m = seg(bt, 0.5 + 0.15 * i, 1, easeInOut);
-          pos = { x: lerp3(pos.x, d.x, m), y: lerp3(pos.y, d.y, m) };
+          pos = { x: lerp2(pos.x, d.x, m), y: lerp2(pos.y, d.y, m) };
         }
         drawBat(ctx, pos.x, pos.y, 22, { flap: t * 10 + i });
       });
@@ -35668,7 +39996,7 @@ void main() {
       <li>FA atau BA menggeser kandidat berdasarkan nilai itu, berulang-ulang.</li>
       <li>Setelah iterasi habis, jadwal terbaik dikirim: tiap tugas dijalankan di VM pilihannya.</li>
     </ol>
-    <p><b>Interaksi:</b> klik sebuah tugas untuk memindahkannya ke VM berikutnya. Coba kalahkan Round-Robin dengan tangan, lalu tekan tombol Hasil FA atau Hasil BA untuk melihat jadwal yang ditemukan algoritma pada beban kerja yang sama.</p>
+    <p><b>Interaksi:</b> seret kotak tugas ke jalur VM lain untuk memindahkannya. Coba kalahkan Round-Robin dengan tangan, lalu tekan tombol Hasil FA atau Hasil BA untuk melihat jadwal yang ditemukan algoritma pada beban kerja yang sama.</p>
     <p>Penugasan manual adalah contoh bahwa ruang pencarian besar: 4 pangkat 16 kemungkinan. Algoritma mencari dengan beberapa ratus evaluasi saja.</p>`,
     mount(container, { registerHooks }) {
       const tasks = generateTasks(16, TASK_SEED);
@@ -35704,17 +40032,17 @@ void main() {
 
         <div class="lanes" id="lanes" style="height:${TOP + lanesH}px">
           ${vms.map(
-        (vm, j) => `<div class="lane" style="top:${TOP + j * (LANE_H + GAP)}px;height:${LANE_H}px">
+        (vm, j) => `<div class="lane" data-vm="${j}" style="top:${TOP + j * (LANE_H + GAP)}px;height:${LANE_H}px">
                 <div class="lane-name" style="width:${LABEL_W - 14}px"><b>${vm.name}</b><span>${vm.mips} MIPS</span><em id="load-${j}"></em></div>
                 <div class="lane-track" style="left:${LABEL_W}px"></div></div>`
       ).join("")}
           <div class="mark mark-ideal" id="mark-ideal"><i>ideal</i></div>
           <div class="mark mark-make" id="mark-make"><i id="mark-make-label">makespan</i></div>
           ${tasks.map(
-        (t) => `<button type="button" class="chip" data-id="${t.id}" style="background:${taskColor(t.id)}" aria-label="Tugas ${t.name}, pindahkan ke VM berikutnya"><b>${t.name}</b><span>${t.mi}</span></button>`
+        (t) => `<button type="button" class="chip" data-id="${t.id}" draggable="true" style="background:${taskColor(t.id)}" aria-label="Tugas ${t.name}, seret ke jalur VM tujuan"><b>${t.name}</b><span>${t.mi}</span></button>`
       ).join("")}
         </div>
-        <p class="kode-hint">Klik blok tugas untuk memindahkannya ke VM berikutnya. Lebar blok = waktu eksekusi (MI \xF7 MIPS).</p>
+        <p class="kode-hint">Seret blok tugas ke jalur VM tujuan. Lebar blok = waktu eksekusi (MI \xF7 MIPS).</p>
 
         <div class="dock dock-kode">
           <button type="button" class="dock-btn" data-act="rr"><span>Round-Robin</span></button>
@@ -35736,18 +40064,18 @@ void main() {
         const ev = evaluateAssignment(assignment, tasks, vms);
         const tMax = Math.max(rr.makespan * 1.1, ev.makespan * 1.06);
         const trackW = lanesEl.clientWidth - LABEL_W - 8;
-        const px = trackW / tMax;
+        const px2 = trackW / tMax;
         const layout = layoutOf(ev);
         chips.forEach((chip) => {
           const l = layout.get(Number(chip.dataset.id));
-          chip.style.left = `${LABEL_W + l.start * px}px`;
+          chip.style.left = `${LABEL_W + l.start * px2}px`;
           chip.style.top = `${TOP + l.lane * (LANE_H + GAP) + 7}px`;
-          chip.style.width = `${Math.max(14, l.dur * px - 4)}px`;
+          chip.style.width = `${Math.max(14, l.dur * px2 - 4)}px`;
           chip.style.height = `${LANE_H - 14}px`;
-          chip.classList.toggle("narrow", l.dur * px < 62);
+          chip.classList.toggle("narrow", l.dur * px2 < 62);
         });
-        $2("#mark-make").style.left = `${LABEL_W + ev.makespan * px}px`;
-        $2("#mark-ideal").style.left = `${LABEL_W + ideal * px}px`;
+        $2("#mark-make").style.left = `${LABEL_W + ev.makespan * px2}px`;
+        $2("#mark-ideal").style.left = `${LABEL_W + ideal * px2}px`;
         $2("#mark-make-label").textContent = `${ev.makespan.toFixed(1)} s`;
         $2("#play-make").textContent = `${ev.makespan.toFixed(2)} s`;
         $2("#f-mv").textContent = String(moves);
@@ -35775,14 +40103,43 @@ void main() {
         solved = label || null;
         update();
       }
+      let draggedTaskId = null;
+      const laneAt = (clientY) => [...lanesEl.querySelectorAll(".lane")].find((lane) => {
+        const rect = lane.getBoundingClientRect();
+        return clientY >= rect.top && clientY <= rect.bottom;
+      });
       chips.forEach((chip) => {
-        chip.addEventListener("click", () => {
-          const i = Number(chip.dataset.id) - 1;
-          assignment[i] = (assignment[i] + 1) % vms.length;
-          moves++;
-          solved = null;
-          update();
+        chip.addEventListener("dragstart", (event) => {
+          draggedTaskId = Number(chip.dataset.id);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", String(draggedTaskId));
+          chip.classList.add("is-dragging");
         });
+        chip.addEventListener("dragend", () => {
+          draggedTaskId = null;
+          chip.classList.remove("is-dragging");
+          lanesEl.querySelectorAll(".drop-target").forEach((lane) => lane.classList.remove("drop-target"));
+        });
+      });
+      lanesEl.addEventListener("dragover", (event) => {
+        if (draggedTaskId === null) return;
+        const lane = laneAt(event.clientY);
+        if (!lane) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        lanesEl.querySelectorAll(".drop-target").forEach((target) => target.classList.toggle("drop-target", target === lane));
+      });
+      lanesEl.addEventListener("drop", (event) => {
+        const lane = laneAt(event.clientY);
+        if (!lane || draggedTaskId === null) return;
+        event.preventDefault();
+        const taskIndex = draggedTaskId - 1;
+        const targetVm = Number(lane.dataset.vm);
+        if (!Number.isInteger(taskIndex) || !Number.isInteger(targetVm) || assignment[taskIndex] === targetVm) return;
+        assignment[taskIndex] = targetVm;
+        moves++;
+        solved = null;
+        update();
       });
       const optimizerBest = {};
       function solveWith(kind) {
