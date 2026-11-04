@@ -156,9 +156,9 @@ export function mountConsole(root, { reducedMotion, registerHooks }, spec) {
 
   $(`#${id}-3d-btn`)?.addEventListener('click', () => {
     if (id === 'ba') {
-      window.open('https://ninduyi.github.io/tes/', '_blank', 'noopener,noreferrer');
+      window.location.href = 'https://ninduyi.github.io/tes/';
     } else if (id === 'fa') {
-      window.open('https://raraa17.github.io/firefly-algorithm/', '_blank', 'noopener,noreferrer');
+      window.location.href = 'https://raraa17.github.io/firefly-algorithm/';
     } else {
       window.__aoeHud?.landscapeChooser?.open();
     }

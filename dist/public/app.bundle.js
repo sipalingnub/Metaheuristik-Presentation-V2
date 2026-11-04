@@ -36335,7 +36335,7 @@ void main() {
                   <h3 class="card-title">${portal.title}</h3>
                   <div class="card-action-wrap">
                     ${portal.isExternal ? `
-                      <a href="${portal.url}" target="_blank" rel="noopener noreferrer" class="card-action-btn btn-action-${portal.id}" tabindex="-1">
+                      <a href="${portal.url}" class="card-action-btn btn-action-${portal.id}" tabindex="-1">
                         <span>${portal.btnText}</span>
                         <svg viewBox="0 0 24 24" class="ext-icon" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                       </a>
@@ -36377,7 +36377,7 @@ void main() {
           }
           sound.playClick();
           if (portal.isExternal) {
-            window.open(portal.url, "_blank", "noopener,noreferrer");
+            window.location.href = portal.url;
           } else {
             this.close();
             this.onSelectBuiltIn();
@@ -38746,9 +38746,9 @@ void main() {
     wireDrawer(root, id);
     $2(`#${id}-3d-btn`)?.addEventListener("click", () => {
       if (id === "ba") {
-        window.open("https://ninduyi.github.io/tes/", "_blank", "noopener,noreferrer");
+        window.location.href = "https://ninduyi.github.io/tes/";
       } else if (id === "fa") {
-        window.open("https://raraa17.github.io/firefly-algorithm/", "_blank", "noopener,noreferrer");
+        window.location.href = "https://raraa17.github.io/firefly-algorithm/";
       } else {
         window.__aoeHud?.landscapeChooser?.open();
       }
