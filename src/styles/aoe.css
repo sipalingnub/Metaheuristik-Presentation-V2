@@ -1765,8 +1765,87 @@
 /* --------------------------------------------------------------------------
    9. BERSIHKAN SISA UI LAMA: SPINE, EDGE, COUNTER, TOOLBAR
    -------------------------------------------------------------------------- */
-.edge, .edge-prev, .edge-next {
-  display: none !important;
+/* --------------------------------------------------------------------------
+   NAVIGASI SLIDE: TOMBOL BACK & NEXT (SIMPLE & CLEAN)
+   -------------------------------------------------------------------------- */
+.edge {
+  position: absolute !important;
+  bottom: 24px !important;
+  top: auto !important;
+  margin-top: 0 !important;
+  z-index: 45 !important;
+  width: 46px !important;
+  height: 46px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  color: #f1f5f9 !important;
+  cursor: pointer !important;
+  opacity: 0.65 !important;
+  transition: opacity 0.2s ease, transform 0.15s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+  padding: 0 !important;
+  outline: none !important;
+}
+
+.edge-prev {
+  right: 80px !important;
+  left: auto !important;
+}
+
+.edge-next {
+  right: 24px !important;
+}
+
+.frame:hover .edge {
+  opacity: 0.85 !important;
+}
+
+.edge:hover:not(:disabled) {
+  opacity: 1 !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.35) !important;
+  transform: translateY(-2px) !important;
+}
+
+.edge:active:not(:disabled) {
+  transform: translateY(0) scale(0.94) !important;
+}
+
+.edge:disabled,
+.edge.disabled {
+  opacity: 0.18 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  color: #64748b !important;
+}
+
+.edge svg {
+  width: 22px !important;
+  height: 22px !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2.4 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  transition: transform 0.15s ease !important;
+}
+
+.edge-prev:hover:not(:disabled) svg {
+  transform: translateX(-1.5px) !important;
+}
+
+.edge-next:hover:not(:disabled) svg {
+  transform: translateX(1.5px) !important;
 }
 
 #counter, .counter {

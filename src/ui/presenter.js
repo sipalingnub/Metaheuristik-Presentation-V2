@@ -463,6 +463,19 @@ export class Presenter {
     this.paper?.update();
     this.aoeHud?.update();
     this.counterEl.textContent = `${String(this.index + 1).padStart(2, '0')} / ${this.slides.length}`;
+
+    const btnPrev = $('btn-prev');
+    const btnNext = $('btn-next');
+    if (btnPrev) {
+      const isFirst = this.index === 0 && this.beat === 0;
+      btnPrev.disabled = isFirst;
+      btnPrev.classList.toggle('disabled', isFirst);
+    }
+    if (btnNext) {
+      const isLast = this.index === this.slides.length - 1 && this.beat >= beats - 1;
+      btnNext.disabled = isLast;
+      btnNext.classList.toggle('disabled', isLast);
+    }
   }
 
   #initInteractiveMouse() {

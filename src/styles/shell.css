@@ -319,35 +319,60 @@
   backdrop-filter: blur(14px);
 }
 .toolbar button, .edge {
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--ink);
-}
-.toolbar button { width: 46px; height: 46px; }
-.toolbar button:hover, .toolbar button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 24%, transparent); color: var(--accent); }
-svg { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.toolbar svg { width: 23px; height: 23px; }
-
-.edge {
   position: absolute;
-  top: 50%;
-  z-index: 25;
-  width: 58px;
-  height: 58px;
-  margin-top: -29px;
-  border: 1px solid var(--edge);
-  background: var(--glass);
-  opacity: 0;
-  transition: opacity 240ms ease;
+  bottom: 24px;
+  z-index: 45;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #f1f5f9;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.2s ease, transform 0.15s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  padding: 0;
+  outline: none;
 }
-.edge-prev { left: 8px; display: none; }
-.edge-next { right: 22px; }
-.frame:hover .edge { opacity: 0.32; }
-.edge:hover { opacity: 1 !important; border-color: var(--accent); color: var(--accent); }
-.edge svg { width: 28px; height: 28px; }
+.edge-prev { right: 80px; left: auto; }
+.edge-next { right: 24px; }
+.frame:hover .edge { opacity: 0.85; }
+.edge:hover {
+  opacity: 1 !important;
+  color: var(--cyan, #38bdf8);
+  border-color: rgba(56, 189, 248, 0.6);
+  background: rgba(15, 23, 42, 0.95);
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
+}
+.edge:active { transform: translateY(0) scale(0.94); }
+.edge:disabled,
+.edge.disabled {
+  opacity: 0.18 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  color: #64748b !important;
+}
+.edge svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s ease;
+}
+.edge-prev:hover:not(:disabled) svg { transform: translateX(-1.5px); }
+.edge-next:hover:not(:disabled) svg { transform: translateX(1.5px); }
 
 .counter {
   position: absolute;
