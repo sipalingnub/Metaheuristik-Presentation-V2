@@ -136,7 +136,7 @@ export function mountConsole(root, { reducedMotion, registerHooks }, spec) {
         <i class="dock-sep"></i>
         <div class="seg" id="${id}-objectives">${objectiveButtonsHtml('rastrigin')}</div>
         <i class="dock-sep"></i>
-        <button type="button" class="dock-btn dock-3d-btn" id="${id}-3d-btn" title="Buka Medan 3D Three.js (3)"><span>🏔️ 3D</span></button>
+        <button type="button" class="dock-btn dock-3d-btn" id="${id}-3d-btn" title="${id === 'ba' ? 'Buka Dunia Baty 3D' : id === 'fa' ? 'Buka Simulasi Firefly 3D' : 'Buka Medan 3D'}"><span>${id === 'ba' ? '🦇 3D' : id === 'fa' ? '💡 3D' : '🏔️ 3D'}</span></button>
         ${dockButton(`${id}-params-toggle`, ICONS.gear, 'Parameter')}
       </div>
 
@@ -155,7 +155,13 @@ export function mountConsole(root, { reducedMotion, registerHooks }, spec) {
   wireDrawer(root, id);
 
   $(`#${id}-3d-btn`)?.addEventListener('click', () => {
-    window.__aoeHud?.landscapeChooser?.open();
+    if (id === 'ba') {
+      window.open('https://ninduyi.github.io/tes/', '_blank', 'noopener,noreferrer');
+    } else if (id === 'fa') {
+      window.open('https://raraa17.github.io/firefly-algorithm/', '_blank', 'noopener,noreferrer');
+    } else {
+      window.__aoeHud?.landscapeChooser?.open();
+    }
   });
 
   let landscape = landscapeById('rastrigin');
