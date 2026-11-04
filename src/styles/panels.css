@@ -12,13 +12,48 @@
 
 /* ---------- Judul ---------- */
 
-.hero .plate { top: 250px; left: 150px; right: auto; width: 1100px; text-align: left; }
+.hero .plate {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  width: 1400px;
+  max-width: 90%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 .hero .plate::before { display: none; }
-.hero .plate-tag { font-size: 24px; }
-.hero .plate-title { margin: 28px 0 22px; font-size: 150px; font-weight: 700; line-height: 0.98; letter-spacing: -0.04em; }
-.hero .plate-title .c-fa { display: block; text-shadow: 0 0 60px rgba(34, 211, 238, 0.45); }
-.hero .plate-title .c-ba { text-shadow: 0 0 60px rgba(167, 139, 250, 0.5); }
-.hero .plate-sub { max-width: 780px; font-size: 34px; line-height: 1.35; }
+.hero .plate-tag { display: none; }
+.hero .plate-title {
+  margin: 0;
+  font-size: 104px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+.hero .plate-title .c-fa {
+  display: block;
+  text-shadow: 0 0 60px rgba(34, 211, 238, 0.45);
+}
+.hero .plate-title .c-vs {
+  display: block;
+  margin: 18px 0;
+  font-size: 46px;
+  font-weight: 500;
+  color: var(--dim);
+  letter-spacing: 0.04em;
+}
+.hero .plate-title .c-ba {
+  display: block;
+  text-shadow: 0 0 60px rgba(167, 139, 250, 0.5);
+}
+.hero .plate-sub { display: none; }
 .hero .plate-beats { display: none; }
 .team {
   position: absolute;
@@ -40,8 +75,8 @@
 /* ---------- Lab mini ---------- */
 
 .labx { position: absolute; inset: 0; --tone: var(--cyan); }
-.labx-cv { position: absolute; left: 130px; top: 226px; width: 1660px; height: 598px; }
-.faders { position: absolute; left: 130px; right: 130px; top: 846px; z-index: 6; display: flex; gap: 16px; }
+.labx-cv { position: absolute; left: 180px; top: 226px; width: 1640px; height: 598px; }
+.faders { position: absolute; left: 180px; right: 90px; top: 846px; z-index: 6; display: flex; gap: 16px; }
 .fader { flex: 1; min-width: 0; padding: 14px 20px 12px; border-radius: 22px; }
 .fader .knob-top { margin-bottom: 8px; font-size: 22px; }
 .fader-note { display: block; margin-top: 8px; color: var(--dim); font-size: 18px; line-height: 1.3; }
@@ -66,7 +101,7 @@
 /* ---------- Cloud: coba sendiri ---------- */
 
 .kode { position: absolute; inset: 0; }
-.relay { position: absolute; left: 130px; right: 130px; top: 164px; z-index: 5; display: flex; justify-content: space-between; margin: 0; padding: 0; list-style: none; }
+.relay { position: absolute; left: 180px; right: 90px; top: 164px; z-index: 5; display: flex; justify-content: space-between; margin: 0; padding: 0; list-style: none; }
 .relay li {
   position: relative;
   display: flex;
@@ -94,7 +129,7 @@
   opacity: 0.7;
 }
 
-.tiles { position: absolute; left: 130px; right: 130px; top: 232px; z-index: 5; display: grid; grid-template-columns: 1.3fr 2.3fr 1fr 1fr 1fr 0.95fr; gap: 14px; }
+.tiles { position: absolute; left: 180px; right: 90px; top: 232px; z-index: 5; display: grid; grid-template-columns: 1.3fr 2.3fr 1fr 1fr 1fr 0.95fr; gap: 14px; }
 .tile { min-height: 116px; padding: 14px 20px; border-radius: 20px; }
 .tile small { display: block; margin-bottom: 6px; color: var(--dim); font-size: 17px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .tile b { font-family: var(--font-mono); font-size: 36px; font-weight: 600; }
@@ -104,7 +139,7 @@
 #play-verdict[data-state='good'] { color: var(--cyan-soft); }
 #play-verdict[data-state='bad'] { color: var(--coral); }
 
-.lanes { position: absolute; left: 130px; right: 130px; top: 398px; z-index: 4; }
+.lanes { position: absolute; left: 180px; right: 90px; top: 398px; z-index: 4; }
 .lane { position: absolute; left: 0; right: 0; }
 .lane-name {
   position: absolute;
@@ -148,16 +183,16 @@
 .chip span { font-family: var(--font-mono); font-size: 17px; font-weight: 600; opacity: 0.75; }
 .chip.narrow b { font-size: 15px; }
 .chip.narrow span { display: none; }
-.kode-hint { position: absolute; left: 130px; right: 130px; top: 922px; margin: 0; color: var(--dim); font-size: 22px; }
+.kode-hint { position: absolute; left: 180px; right: 90px; top: 922px; margin: 0; color: var(--dim); font-size: 22px; }
 .dock-kode kbd { background: rgba(255, 255, 255, 0.08); }
 
 /* ---------- Cloud: dua penjadwal ---------- */
 
 .twin { position: absolute; inset: 0; --tone: #5eead4; }
-.gantt { position: absolute; left: 130px; width: 1130px; padding: 0; border-radius: 26px; overflow: hidden; }
+.gantt { position: absolute; left: 180px; width: 1090px; padding: 0; border-radius: 26px; overflow: hidden; }
 .gantt-fa { top: 176px; }
 .gantt-ba { top: 548px; }
-.gantt canvas { display: block; width: 1130px; height: 300px; }
+.gantt canvas { display: block; width: 1090px; height: 300px; }
 .gantt-head { display: flex; align-items: baseline; gap: 18px; padding: 12px 24px 0; }
 .gantt-head b { font-family: var(--font-display); font-size: 30px; }
 .gantt-head strong { font-family: var(--font-mono); font-size: 34px; font-weight: 600; }
@@ -167,7 +202,7 @@
 .gantt-fa { border-top: 4px solid var(--cyan); }
 .gantt-ba { border-top: 4px solid var(--violet); }
 
-.curve-card { position: absolute; left: 1290px; top: 176px; width: 500px; height: 724px; display: flex; flex-direction: column; padding: 18px 20px; border-radius: 26px; }
+.curve-card { position: absolute; left: 1300px; top: 176px; width: 500px; height: 724px; display: flex; flex-direction: column; padding: 18px 20px; border-radius: 26px; }
 .curve-card small, .strip-chart small { color: var(--dim); font-size: 19px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .curve-card canvas, .strip-chart canvas { flex: 1; width: 100%; min-height: 0; }
 .curve-iter { color: var(--ink); font-family: var(--font-mono); font-size: 21px; text-align: right; }
@@ -175,9 +210,10 @@
 /* ---------- Hasil: adu 2D ---------- */
 
 .versus { position: absolute; inset: 0; --tone: var(--amber); }
-.arena { position: absolute; top: 162px; width: 810px; height: 540px; }
-.arena-fa { left: 130px; }
-.arena-ba { left: 980px; }
+.arena { position: absolute; top: 162px; width: 780px; height: 540px; }
+.arena-fa { left: 175px; }
+.arena-fa .scoreboard { left: 18px; }
+.arena-ba { left: 1005px; }
 .arena canvas { width: 100%; height: 100%; }
 .scoreboard { position: absolute; top: 50%; width: 148px; padding: 14px 12px; border-radius: 20px; text-align: center; transform: translateY(-50%); }
 .arena-fa .scoreboard { left: 0; border-top: 4px solid var(--cyan); }
@@ -189,7 +225,7 @@
 .scoreboard em { color: var(--dim); font-size: 17px; font-style: normal; font-weight: 600; }
 .versus-badge {
   position: absolute;
-  left: 918px;
+  left: 955px;
   top: 394px;
   display: grid;
   place-items: center;
@@ -210,22 +246,22 @@
 /* ---------- Hasil: eksperimen ---------- */
 
 .trial { position: absolute; inset: 0; --tone: var(--amber); }
-.scores { position: absolute; left: 130px; right: 130px; top: 168px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.scores { position: absolute; left: 180px; right: 90px; top: 168px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
 .score-card { padding: 14px 22px; border-top: 5px solid var(--c); border-radius: 22px; }
 .score-card span { display: block; color: var(--c); font-family: var(--font-display); font-size: 25px; font-weight: 600; }
 .score-card b { display: block; margin: 2px 0; font-family: var(--font-mono); font-size: 46px; font-weight: 600; }
 .score-card em { color: var(--dim); font-size: 19px; font-style: normal; font-weight: 600; }
 .score-card.idle b { color: var(--dim); }
-.trial-chart { position: absolute; left: 130px; top: 330px; width: 1660px; height: 520px; }
+.trial-chart { position: absolute; left: 180px; top: 330px; width: 1640px; height: 520px; }
 .trial-chart canvas { width: 100%; height: 100%; }
-.trial-verdict { position: absolute; left: 130px; right: 130px; top: 860px; margin: 0; padding-left: 20px; border-left: 5px solid var(--amber); font-size: 25px; font-weight: 600; line-height: 1.35; }
+.trial-verdict { position: absolute; left: 180px; right: 90px; top: 860px; margin: 0; padding-left: 20px; border-left: 5px solid var(--amber); font-size: 25px; font-weight: 600; line-height: 1.35; }
 
 /* ---------- Penutup: ringkasan dua kolom ---------- */
 
 .duo { position: absolute; inset: 0; }
-.duo-names { position: absolute; left: 130px; right: 130px; top: 166px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.duo-names { position: absolute; left: 180px; right: 90px; top: 166px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 .duo-names span { padding: 6px 0; border-bottom: 4px solid currentColor; font-family: var(--font-display); font-size: 40px; font-weight: 700; text-align: center; }
-.duo-rows { position: absolute; left: 130px; right: 130px; top: 250px; display: grid; gap: 21px; }
+.duo-rows { position: absolute; left: 180px; right: 90px; top: 250px; display: grid; gap: 21px; }
 .duo-row { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; animation: rise 560ms both; animation-delay: calc(var(--i) * 80ms); }
 .duo-row em {
   position: absolute;
@@ -253,20 +289,20 @@
 /* ---------- Penutup: kesimpulan ---------- */
 
 .closing { position: absolute; inset: 0; }
-.verdicts { position: absolute; left: 130px; right: 130px; top: 210px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.verdicts { position: absolute; left: 180px; right: 90px; top: 210px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
 .verdict { position: relative; min-height: 560px; padding: 36px 36px 30px; border-radius: 30px; animation: rise 640ms both; animation-delay: calc(var(--i) * 140ms); overflow: hidden; }
 .verdict::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: linear-gradient(90deg, var(--cyan), var(--violet)); }
 .verdict span { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--bg-0); font-family: var(--font-mono); font-size: 26px; font-weight: 700; }
 .verdict strong { display: block; margin: 28px 0 22px; font-family: var(--font-display); font-size: 54px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; }
 .verdict p { margin: 0; color: #d6e2ff; font-size: 28px; line-height: 1.5; }
 .verdict-wait { color: var(--dim); font-size: 28px; }
-.limits { position: absolute; left: 130px; right: 130px; top: 806px; margin: 0; padding: 18px 26px; border-left: 6px solid var(--amber); border-radius: 0 18px 18px 0; background: rgba(251, 191, 36, 0.07); color: #e6eeff; font-size: 24px; line-height: 1.45; }
+.limits { position: absolute; left: 180px; right: 90px; top: 806px; margin: 0; padding: 18px 26px; border-left: 6px solid var(--amber); border-radius: 0 18px 18px 0; background: rgba(251, 191, 36, 0.07); color: #e6eeff; font-size: 24px; line-height: 1.45; }
 .limits b { color: var(--amber); }
 
 /* ---------- Pustaka ---------- */
 
 .shelf { position: absolute; inset: 0; }
-.shelf-grid { position: absolute; left: 130px; right: 70px; top: 178px; bottom: 56px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 22px; }
+.shelf-grid { position: absolute; left: 180px; right: 70px; top: 178px; bottom: 56px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 22px; }
 .book { padding: 20px 24px; border-radius: 24px; overflow: hidden; animation: rise 560ms both; animation-delay: calc(var(--i) * 80ms); }
 .book-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .book-tag { padding: 4px 16px; border: 1px solid currentColor; border-radius: 999px; font-size: 18px; font-weight: 700; }

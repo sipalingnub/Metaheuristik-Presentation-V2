@@ -489,7 +489,7 @@
   var TECH_TREE_DATA = {
     dark: {
       id: "dark",
-      name: "Act 1 \xB7 Krisis Cloud & NP-Hard",
+      name: "Bab 1 \xB7 Krisis Cloud & NP-Hard",
       icon: "\u{1F3F0}",
       summary: "Fondasi matematika penjadwalan komputasi awan, ledakan ruang pencarian kombinatorial, dan kegagalan pendekatan heuristik konvensional.",
       nodes: [
@@ -537,7 +537,7 @@
     },
     feudal: {
       id: "feudal",
-      name: "Act 2 \xB7 Ordo Kunang-Kunang / Firefly",
+      name: "Bab 2 \xB7 Ordo Kunang-Kunang / Firefly",
       icon: "\u{1F4A1}",
       summary: "Sains di balik Firefly Algorithm: hukum penyerapan cahaya Beer-Lambert, pergerakan berbasis daya tarik berjarak, dan kemampuan klasterisasi multimodal.",
       nodes: [
@@ -585,7 +585,7 @@
     },
     castle: {
       id: "castle",
-      name: "Act 3 \xB7 Legiun Kelelawar / Bat",
+      name: "Bab 3 \xB7 Legiun Kelelawar / Bat",
       icon: "\u{1F987}",
       summary: "Mekanisme Bat Algorithm: ekolokasi ultrasonik, transisi dinamis antara kelantangan (A) dan laju pulsa (r), serta penyerbuan presisi di sekitar pemimpin terbaik.",
       nodes: [
@@ -632,7 +632,7 @@
     },
     imperial: {
       id: "imperial",
-      name: "Act 4 \xB7 Penerapan Komputasi Awan",
+      name: "Bab 4 \xB7 Penerapan Komputasi Awan",
       icon: "\u2694\uFE0F",
       summary: "Teknik pemetaan ruang kontinu ke diskret, fungsi penalti sebaran beban VM, dan metodologi perbandingan eksperimen 10 beban kerja.",
       nodes: [
@@ -680,7 +680,7 @@
     },
     wonder: {
       id: "wonder",
-      name: "Act 5 \xB7 Sintesis & Perbandingan Ilmiah",
+      name: "Bab 5 \xB7 Sintesis & Perbandingan Ilmiah",
       icon: "\u{1F3DB}\uFE0F",
       summary: "Bedah komparatif komprehensif antara Firefly Algorithm dan Bat Algorithm: kompleksitas waktu, sensitivitas parameter, dan panduan pemilihan di dunia industri.",
       nodes: [
@@ -1835,7 +1835,7 @@
     masalah: {
       title: "Analisis Masalah Penjadwalan Komputasi Awan (Cloud Scheduling)",
       chapterNum: "1 & 2",
-      eraName: "Act 1 \xB7 Masalah & Penjadwalan Cloud",
+      eraName: "Bab 1 \xB7 Masalah & Penjadwalan Cloud",
       icon: "\u{1F3F0}",
       sections: [
         {
@@ -1871,7 +1871,7 @@
     firefly: {
       title: "Bedah Ilmiah Algoritma Kunang-Kunang (Firefly Algorithm)",
       chapterNum: "3 & 4",
-      eraName: "Act 2 \xB7 Algoritma Firefly",
+      eraName: "Bab 2 \xB7 Algoritma Firefly",
       icon: "\u{1F4A1}",
       sections: [
         {
@@ -1913,7 +1913,7 @@
     bat: {
       title: "Bedah Ilmiah Algoritma Kelelawar (Bat Algorithm)",
       chapterNum: "5 & 6",
-      eraName: "Act 3 \xB7 Algoritma Bat",
+      eraName: "Bab 3 \xB7 Algoritma Bat",
       icon: "\u{1F987}",
       sections: [
         {
@@ -1954,7 +1954,7 @@
     cloud: {
       title: "Model Penerapan & Perbandingan di Cloud Computing",
       chapterNum: "7, 8, 9 & 10",
-      eraName: "Act 4 & 5 \xB7 Penerapan & Sintesis",
+      eraName: "Bab 4 & 5 \xB7 Penerapan & Sintesis",
       icon: "\u2694\uFE0F",
       sections: [
         {
@@ -34577,6 +34577,7 @@ void main() {
             </div>
 
             <!-- Kamera Orbit & Tutup -->
+            <button type="button" id="sky-btn-portal" class="sky-icon-btn" title="Pilih Visualisasi 3D Lain (Firefly / Bat)">\u{1F310} Portal 3D</button>
             <button type="button" id="sky-toggle-rotate" class="sky-icon-btn" title="Putar Kamera Otomatis">\u{1F3A5} Orbit</button>
             <button type="button" id="sky-btn-close" class="sky-icon-btn close-btn" title="Tutup Tampilan 3D">&times;</button>
           </div>
@@ -36005,6 +36006,10 @@ void main() {
     this.modal.querySelector("#sky-agent-delete")?.addEventListener("click", () => {
       __privateMethod(this, _Landscape3DModal_instances, destroySelectedAgent_fn).call(this);
     });
+    this.modal.querySelector("#sky-btn-portal")?.addEventListener("click", () => {
+      this.close();
+      window.__aoeHud?.landscapeChooser?.open();
+    });
     this.modal.querySelector("#sky-btn-close")?.addEventListener("click", () => this.close());
     this.modal.querySelectorAll("#sky-pov-picker button").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -36237,12 +36242,158 @@ void main() {
 
   // src/ui/aoeHud.js
   var ERAS = [
-    { id: "dark", name: "Act 1", sub: "Krisis Cloud & NP-Hard", icon: "\u{1F3F0}", firstSlide: "masalah" },
-    { id: "feudal", name: "Act 2", sub: "Ordo Kunang-Kunang (FA)", icon: "\u{1F4A1}", firstSlide: "fa-inspirasi" },
-    { id: "castle", name: "Act 3", sub: "Legiun Kelelawar (BA)", icon: "\u{1F987}", firstSlide: "ba-inspirasi" },
-    { id: "imperial", name: "Act 4", sub: "Perang Penjadwalan Cloud", icon: "\u2694\uFE0F", firstSlide: "kasus-kode" },
-    { id: "wonder", name: "Act 5", sub: "Sintesis & Analisis Hasil", icon: "\u{1F3DB}\uFE0F", firstSlide: "adu" }
+    { id: "dark", name: "Bab 1", sub: "Krisis Cloud & NP-Hard", icon: "\u{1F3F0}", firstSlide: "masalah" },
+    { id: "feudal", name: "Bab 2", sub: "Ordo Kunang-Kunang (FA)", icon: "\u{1F4A1}", firstSlide: "fa-inspirasi" },
+    { id: "castle", name: "Bab 3", sub: "Legiun Kelelawar (BA)", icon: "\u{1F987}", firstSlide: "ba-inspirasi" },
+    { id: "imperial", name: "Bab 4", sub: "Perang Penjadwalan Cloud", icon: "\u2694\uFE0F", firstSlide: "kasus-kode" },
+    { id: "wonder", name: "Bab 5", sub: "Sintesis & Analisis Hasil", icon: "\u{1F3DB}\uFE0F", firstSlide: "adu" }
   ];
+
+  var PORTALS_DATA = [
+    {
+      id: "firefly",
+      title: "Firefly Algorithm 3D",
+      icon: "\u{1F4A1}",
+      glowClass: "halo-firefly",
+      url: "https://raraa17.github.io/firefly-algorithm/",
+      btnText: "Buka Simulasi",
+      isExternal: true
+    },
+    {
+      id: "bat",
+      title: "Dunia Baty 3D",
+      icon: "\u{1F987}",
+      glowClass: "halo-bat",
+      url: "https://ninduyi.github.io/tes/",
+      btnText: "Buka Dunia Baty",
+      isExternal: true
+    },
+    {
+      id: "builtin",
+      title: "Medan Komparasi 3D",
+      icon: "\u{1F3D4}\uFE0F",
+      glowClass: "halo-builtin",
+      url: null,
+      btnText: "Masuk Medan 3D",
+      isExternal: false
+    }
+  ];
+  var Landscape3DChooserModal = class {
+    constructor(options = {}) {
+      this.modal = null;
+      this.onSelectBuiltIn = options.onSelectBuiltIn || (() => {});
+    }
+    mount(root) {
+      if (this.modal) return;
+      const el = document.createElement("div");
+      el.id = "aoe-3d-chooser-modal";
+      el.className = "aoe-modal-backdrop hidden";
+      el.setAttribute("role", "dialog");
+      el.setAttribute("aria-label", "Portal Pemilih Visualisasi 3D");
+      root.appendChild(el);
+      this.modal = el;
+      this.render();
+      this.bind();
+    }
+    open() {
+      if (!this.modal) return;
+      this.modal.classList.remove("hidden");
+      sound.playHorn();
+    }
+    close() {
+      if (!this.modal) return;
+      this.modal.classList.add("hidden");
+      sound.playClick();
+    }
+    toggle() {
+      if (this.modal?.classList.contains("hidden")) {
+        this.open();
+      } else {
+        this.close();
+      }
+    }
+    render() {
+      this.modal.innerHTML = `
+        <div class="aoe-chooser-window">
+          <header class="aoe-chooser-header">
+            <div class="aoe-chooser-title-wrap">
+              <span class="aoe-chooser-icon">\u{1F3D4}\uFE0F</span>
+              <div>
+                <h2 class="aoe-chooser-title">PILIH VISUALISASI 3D</h2>
+              </div>
+            </div>
+            <button type="button" class="aoe-stone-btn close-btn" id="btn-close-3d-chooser" title="Tutup (ESC)">&times;</button>
+          </header>
+
+          <div class="aoe-chooser-body">
+            <div class="aoe-3d-grid">
+              ${PORTALS_DATA.map((portal) => `
+                <div class="aoe-3d-card card-${portal.id}" data-portal-id="${portal.id}" tabindex="0" role="button" aria-label="${portal.title}">
+                  <div class="card-icon-halo ${portal.glowClass}">
+                    <span class="card-icon">${portal.icon}</span>
+                  </div>
+                  <h3 class="card-title">${portal.title}</h3>
+                  <div class="card-action-wrap">
+                    ${portal.isExternal ? `
+                      <a href="${portal.url}" target="_blank" rel="noopener noreferrer" class="card-action-btn btn-action-${portal.id}" tabindex="-1">
+                        <span>${portal.btnText}</span>
+                        <svg viewBox="0 0 24 24" class="ext-icon" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </a>
+                    ` : `
+                      <button type="button" class="card-action-btn btn-action-${portal.id}" tabindex="-1">
+                        <span>${portal.btnText}</span>
+                        <span class="play-arrow" aria-hidden="true">\u25B6</span>
+                      </button>
+                    `}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+
+          <footer class="aoe-chooser-footer">
+            <div class="footer-tip">
+              <kbd>ESC</kbd> untuk menutup
+            </div>
+          </footer>
+        </div>
+      `;
+    }
+    bind() {
+      const closeBtn = this.modal.querySelector("#btn-close-3d-chooser");
+      closeBtn?.addEventListener("click", () => this.close());
+      this.modal.addEventListener("click", (e) => {
+        if (e.target === this.modal) this.close();
+      });
+      const cards = this.modal.querySelectorAll(".aoe-3d-card");
+      cards.forEach((card) => {
+        const portalId = card.getAttribute("data-portal-id");
+        const portal = PORTALS_DATA.find((p) => p.id === portalId);
+        if (!portal) return;
+        const triggerPortal = (event) => {
+          if (event.target.closest("a")) {
+            sound.playClick();
+            return;
+          }
+          sound.playClick();
+          if (portal.isExternal) {
+            window.open(portal.url, "_blank", "noopener,noreferrer");
+          } else {
+            this.close();
+            this.onSelectBuiltIn();
+          }
+        };
+        card.addEventListener("click", triggerPortal);
+        card.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            triggerPortal(e);
+          }
+        });
+      });
+    }
+  };
+
   var _AoEHud_instances, updateEraBanner_fn, updateResources_fn, updateDefaultEntityCard_fn, renderEntityCard_fn, initMinimap_fn, drawMinimap_fn, showTacticalBeacon_fn, bind_fn4, render_fn4;
   var AoEHud = class {
     /**
@@ -36255,6 +36406,9 @@ void main() {
       this.sandbox = new AoESandboxModal(() => this.presenter.goTo(0));
       this.codex = new DeepCodexModal();
       this.landscape3d = new Landscape3DModal();
+      this.landscapeChooser = new Landscape3DChooserModal({
+        onSelectBuiltIn: (opt) => this.landscape3d.open(opt)
+      });
       this.hudEl = null;
       this.minimapCanvas = null;
       this.minimapCtx = null;
@@ -36273,22 +36427,14 @@ void main() {
       this.sandbox.mount(frameEl);
       this.codex.mount(frameEl);
       this.landscape3d.mount(frameEl);
+      this.landscapeChooser.mount(frameEl);
       window.__aoeHud = this;
       __privateMethod(this, _AoEHud_instances, render_fn4).call(this);
-      __privateMethod(this, _AoEHud_instances, initMinimap_fn).call(this);
+      
       __privateMethod(this, _AoEHud_instances, bind_fn4).call(this);
       this.update();
     }
     update() {
-      if (!this.hudEl) return;
-      const slide = this.presenter.slides[this.presenter.index];
-      if (!slide) return;
-      __privateMethod(this, _AoEHud_instances, updateEraBanner_fn).call(this, slide);
-      __privateMethod(this, _AoEHud_instances, updateResources_fn).call(this, slide);
-      if (!this.selectedEntity) {
-        __privateMethod(this, _AoEHud_instances, updateDefaultEntityCard_fn).call(this, slide);
-      }
-      __privateMethod(this, _AoEHud_instances, drawMinimap_fn).call(this);
     }
     selectEntity(entity) {
       this.selectedEntity = entity;
@@ -36330,20 +36476,6 @@ void main() {
   };
   _AoEHud_instances = new WeakSet();
   updateEraBanner_fn = function(slide) {
-    const ch = slide.chapter.id;
-    let era = ERAS[0];
-    if (["masalah", "metaheuristik"].includes(ch)) era = ERAS[0];
-    else if (["firefly"].includes(ch)) era = ERAS[1];
-    else if (["bat"].includes(ch)) era = ERAS[2];
-    else if (["model", "cloud"].includes(ch)) era = ERAS[3];
-    else era = ERAS[4];
-    const bannerText = this.hudEl.querySelector("#aoe-active-era-text");
-    const bannerIcon = this.hudEl.querySelector("#aoe-active-era-icon");
-    if (bannerText) bannerText.textContent = era.name.toUpperCase();
-    if (bannerIcon) bannerIcon.textContent = era.icon;
-    this.hudEl.querySelectorAll(".aoe-era-dropdown-item").forEach((item) => {
-      item.classList.toggle("active", item.dataset.eraId === era.id);
-    });
   };
   updateResources_fn = function(slide) {
     const ch = slide.chapter.id;
@@ -36472,157 +36604,9 @@ void main() {
       setTimeout(() => this.beaconEl.classList.add("hidden"), 500);
     }, 1800);
   };
-  bind_fn4 = function() {
-    const eraBtn = this.hudEl.querySelector("#aoe-era-selector-btn");
-    const eraDropdown = this.hudEl.querySelector("#aoe-era-dropdown");
-    eraBtn?.addEventListener("click", () => {
-      sound.playClick();
-      eraDropdown?.classList.toggle("hidden");
-    });
-    this.hudEl.querySelectorAll(".aoe-era-dropdown-item").forEach((item) => {
-      item.addEventListener("click", (e) => {
-        sound.playHorn();
-        eraDropdown?.classList.add("hidden");
-        const slideId = item.dataset.firstSlide;
-        const targetIdx = this.presenter.slides.findIndex((s) => s.id === slideId);
-        if (targetIdx >= 0) this.presenter.goTo(targetIdx);
-      });
-    });
-    this.minimapCanvas?.addEventListener("click", (e) => {
-      const rect = this.minimapCanvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width * 176;
-      const y = (e.clientY - rect.top) / rect.height * 96;
-      this.triggerRadarPing(x, y);
-    });
-    this.hudEl.querySelector("#aoe-ping-trigger")?.addEventListener("click", () => {
-      this.triggerRadarPing(88, 48);
-    });
-    this.hudEl.querySelector("#aoe-top-techtree")?.addEventListener("click", () => this.techTree.open());
-    this.hudEl.querySelector("#aoe-top-sandbox")?.addEventListener("click", () => this.sandbox.open());
-    this.hudEl.querySelector("#aoe-top-3d")?.addEventListener("click", () => this.landscape3d.open());
-    this.hudEl.querySelector("#aoe-top-codex")?.addEventListener("click", () => {
-      const slide = this.presenter.slides[this.presenter.index];
-      this.codex.open(slide?.chapter?.id || "masalah");
-    });
-    this.hudEl.querySelector("#aoe-top-sound")?.addEventListener("click", () => {
-      const muted = sound.toggleMute();
-      this.isMuted = muted;
-      const icon = this.hudEl.querySelector("#aoe-sound-icon");
-      if (icon) icon.textContent = muted ? "\u{1F507}" : "\u{1F50A}";
-    });
-    this.hudEl.querySelector("#aoe-bottom-game")?.addEventListener("click", () => this.sandbox.open());
-    this.hudEl.querySelector("#aoe-bottom-3d")?.addEventListener("click", () => this.landscape3d.open());
-    this.hudEl.querySelector("#aoe-bottom-tech")?.addEventListener("click", () => this.techTree.open());
-    this.hudEl.querySelector("#aoe-bottom-theory")?.addEventListener("click", () => {
-      const slide = this.presenter.slides[this.presenter.index];
-      this.codex.open(slide?.chapter?.id || "masalah");
-    });
-    document.addEventListener("click", (e) => {
-      const chip = e.target.closest(".chip");
-      if (chip) {
-        this.selectEntity({
-          name: `Kafilah ${chip.querySelector("b")?.textContent || "Tugas"}`,
-          role: "Beban Komputasi Cloud (Task Caravan)",
-          icon: "\u{1F4E6}",
-          badge: "TUGAS"
-        });
-        return;
-      }
-      const lane = e.target.closest(".lane-name");
-      if (lane) {
-        this.selectEntity({
-          name: `Benteng ${lane.querySelector("b")?.textContent || "Server"}`,
-          role: "Node VM Komputasi",
-          icon: "\u{1F3F0}",
-          badge: "VM"
-        });
-      }
-    });
-  };
+  bind_fn4 = function() {};
   render_fn4 = function() {
-    this.hudEl.innerHTML = `
-      <!-- 1. BILAH SUMBER DAYA & ERA MENGAMBANG ATAS (SLEEK & TIDAK MENUTUPI JUDUL) -->
-      <header class="aoe-floating-header">
-        <!-- Dropdown Kemajuan Era -->
-        <div class="aoe-era-selector-wrap">
-          <button type="button" id="aoe-era-selector-btn" class="aoe-era-crest-btn" title="Pilih act presentasi">
-            <span id="aoe-active-era-icon" class="era-icon">\u{1F3F0}</span>
-            <b id="aoe-active-era-text">ACT 1</b>
-            <span class="era-arrow">\u25BC</span>
-          </button>
-
-          <div id="aoe-era-dropdown" class="aoe-era-dropdown hidden">
-            ${ERAS.map(
-      (era) => `
-              <button type="button" class="aoe-era-dropdown-item" data-era-id="${era.id}" data-first-slide="${era.firstSlide}">
-                <span class="item-icon">${era.icon}</span>
-                <div class="item-text">
-                  <b>${era.name}</b>
-                  <small>${era.sub}</small>
-                </div>
-              </button>`
-    ).join("")}
-          </div>
-        </div>
-
-        <!-- Counter Sumber Daya Kerajaan -->
-        <div class="aoe-resources-pill">
-          <span class="res-tag" title="Total Beban Tugas">\u{1FAB5} <b>16 Tugas</b></span>
-          <span class="res-tag" title="Total Kecepatan Komputasi VM">\u{1F33E} <b>520 MIPS</b></span>
-          <span class="res-tag gold" title="Indikator Makespan">\u{1FA99} <b id="aoe-res-make">Makespan</b></span>
-          <span class="res-tag" title="Algoritma Aktif">\u{1F465} <b id="aoe-res-algo">Swarm</b></span>
-        </div>
-
-        <!-- Tombol Aksi Cepat RTS -->
-        <div class="aoe-header-actions">
-          <button type="button" id="aoe-top-techtree" class="aoe-hdr-btn" title="Buka Pohon Teknologi & Pengetahuan (T)">
-            <span>\u{1F3DB}\uFE0F</span><b>Tech Tree</b>
-          </button>
-          <button type="button" id="aoe-top-sandbox" class="aoe-hdr-btn aoe-gold-btn" title="Buka Game RTS Arena Perang Bebas (A)">
-            <span>\u{1F3AE}</span><b>Game Arena</b>
-          </button>
-          <button type="button" id="aoe-top-3d" class="aoe-hdr-btn aoe-3d-btn" title="Buka Visualisasi Medan 3D Three.js: Rastrigin, Ackley, Sphere (3)">
-            <span>\u{1F3D4}\uFE0F</span><b>Medan 3D</b>
-          </button>
-          <button type="button" id="aoe-top-codex" class="aoe-hdr-btn" title="Buka Buku Teori & LaTeX Codex (B)">
-            <span>\u{1F4D6}</span><b>Buku Teori</b>
-          </button>
-          <button type="button" id="aoe-top-sound" class="aoe-hdr-btn aoe-sound-btn" title="Bisu / Bunyikan SFX Suara (M)">
-            <span id="aoe-sound-icon">${this.isMuted ? "\u{1F507}" : "\u{1F50A}"}</span>
-          </button>
-        </div>
-      </header>
-
-      <!-- 2. RADAR MINIMAP TAKTIS (POJOK KIRI BAWAH - TIDAK MENUTUPI TENGAH) -->
-      <aside class="aoe-corner-minimap">
-        <div class="minimap-bar">
-          <span>RADAR TAKTIS</span>
-          <button type="button" id="aoe-ping-trigger" class="aoe-ping-btn" title="Pancarkan gelombang radar ping">\u{1F4E1} PING</button>
-        </div>
-        <div class="minimap-frame">
-          <canvas id="aoe-minimap-cv"></canvas>
-        </div>
-        <div id="aoe-unit-card-content" class="aoe-mini-card">
-          <!-- Kartu status entitas terpilih -->
-        </div>
-      </aside>
-
-      <!-- 3. KOTAK PINTASAN TAKTIS (POJOK KANAN BAWAH - TIDAK MENUTUPI TENGAH) -->
-      <aside class="aoe-corner-actions">
-        <button type="button" id="aoe-bottom-game" class="aoe-corner-btn gold" title="Buka Game RTS Pertahanan Cloud (A)">
-          <span>\u{1F3AE}</span><small>Arena Game</small>
-        </button>
-        <button type="button" id="aoe-bottom-3d" class="aoe-corner-btn green" title="Buka Medan 3D Tiga Dimensi (3)">
-          <span>\u{1F3D4}\uFE0F</span><small>Medan 3D</small>
-        </button>
-        <button type="button" id="aoe-bottom-tech" class="aoe-corner-btn" title="Buka Pohon Teknologi (T)">
-          <span>\u{1F3DB}\uFE0F</span><small>Tech Tree</small>
-        </button>
-        <button type="button" id="aoe-bottom-theory" class="aoe-corner-btn" title="Buka Buku Teori LaTeX (B)">
-          <span>\u{1F4D6}</span><small>Buku Teori</small>
-        </button>
-      </aside>
-    `;
+    this.hudEl.innerHTML = "";
   };
 
   // src/ui/presenter.js
@@ -36636,7 +36620,7 @@ void main() {
     { chapters: ["model", "cloud"], label: "Perang Penjadwalan Cloud" },
     { chapters: ["hasil", "penutup"], label: "Sintesis & Analisis Hasil" }
   ];
-  var _Presenter_instances, fit_fn, buildSpine_fn, buildOverview_fn, bind_fn5, typing_fn, toggle_fn, onKey_fn, showActToast_fn, markOverview_fn, refresh_fn, initInteractiveMouse_fn;
+  var _Presenter_instances, fit_fn, buildSpine_fn, buildOverview_fn, bind_fn5, typing_fn, toggle_fn, onKey_fn, showChapterTransition_fn, dismissChapterTransition_fn, markOverview_fn, refresh_fn, initInteractiveMouse_fn;
   var Presenter = class {
     constructor(slides2) {
       __privateAdd(this, _Presenter_instances);
@@ -36647,8 +36631,12 @@ void main() {
       this.cleanup = null;
       this.hooks = null;
       this.calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-      this.actToast = null;
-      this.actToastTimer = null;
+      this.curtainEl = null;
+      this.curtainTimer = null;
+      this.curtainFadeTimer = null;
+      this.committedIndex = 0;
+      this.previewIndex = null;
+      this.restoreTimer = null;
       this.frame = $("frame");
       this.slidesEl = $("slides");
       this.spineEl = $("spine");
@@ -36718,8 +36706,9 @@ void main() {
      * @param {number} index
      * @param {{atEnd?:boolean, event?:Event}} [opts]
      */
-    goTo(index, { atEnd = false } = {}) {
+    goTo(index, { atEnd = false, silent = false } = {}) {
       if (index < 0 || index >= this.slides.length) return;
+      __privateMethod(this, _Presenter_instances, dismissChapterTransition_fn).call(this);
       try {
         this.cleanup?.();
       } catch (err) {
@@ -36727,6 +36716,10 @@ void main() {
       }
       this.cleanup = null;
       this.hooks = null;
+      if (!silent) {
+        this.committedIndex = index;
+        this.previewIndex = null;
+      }
       const slide = this.slides[index];
       const previousChapter = this.current?.dataset.chapter;
       this.index = index;
@@ -36735,7 +36728,7 @@ void main() {
       const leaving = this.current;
       leaving?.remove();
       const el = document.createElement("section");
-      el.className = this.calm ? "slide" : "slide slide-fade-in";
+      el.className = this.calm || silent ? "slide" : "slide slide-fade-in";
       el.id = `slide-${slide.id}`;
       el.setAttribute("aria-label", slide.title);
       el.dataset.chapter = slide.chapter.id;
@@ -36747,20 +36740,22 @@ void main() {
       });
       if (typeof result === "function") this.cleanup = result;
       if (atEnd && this.beatsOf(slide) > 1) this.setBeat(this.beatsOf(slide) - 1);
-      if (!leaving || previousChapter !== slide.chapter.id) {
-        const actIndex = ACTS.findIndex((act2) => act2.chapters.includes(slide.chapter.id));
-        const act = ACTS[actIndex];
-        __privateMethod(this, _Presenter_instances, showActToast_fn).call(this, actIndex + 1, act?.label ?? slide.chapter.label);
+      if (!silent && previousChapter && previousChapter !== slide.chapter.id) {
+        const chapterIndex = this.chapters.findIndex((c) => c.id === slide.chapter.id);
+        const chapterNum = chapterIndex >= 0 ? chapterIndex + 1 : 1;
+        __privateMethod(this, _Presenter_instances, showChapterTransition_fn).call(this, chapterNum, slide.chapter.label, slide.title);
       }
-      if (!this.calm) {
+      if (!this.calm && !silent) {
         setTimeout(() => el.classList.remove("slide-fade-in"), 260);
       }
       $("notes-title").textContent = slide.title;
       $("notes-content").innerHTML = slide.notes || "";
       __privateMethod(this, _Presenter_instances, refresh_fn).call(this);
-      try {
-        history.replaceState(null, "", `#${slide.id}`);
-      } catch {
+      if (!silent) {
+        try {
+          history.replaceState(null, "", `#${slide.id}`);
+        } catch {
+        }
       }
     }
   };
@@ -36771,29 +36766,104 @@ void main() {
     this.scale = k;
   };
   buildSpine_fn = function() {
-    this.spineEl.innerHTML = this.chapters.map(
+    const chaptersHtml = this.chapters.map(
       (ch, n) => `
         <div class="spine-chapter" data-chapter="${ch.id}">
           <button type="button" class="spine-node" data-first="${ch.indices[0]}" aria-label="Bab ${n + 1}: ${ch.label}">
             <span>${n + 1}</span><em>${ch.label}</em>
           </button>
           <div class="spine-ticks">
-            ${ch.indices.map((i) => `<button type="button" class="spine-tick" data-slide="${i}" title="${this.slides[i].title}" aria-label="Slide ${i + 1}: ${this.slides[i].title}"><i></i></button>`).join("")}
+            ${ch.indices.map((i) => `<button type="button" class="spine-tick" data-slide="${i}" data-title="Slide ${i + 1}: ${this.slides[i].title}" title="${this.slides[i].title}" aria-label="Slide ${i + 1}: ${this.slides[i].title}"><i></i></button>`).join("")}
           </div>
         </div>`
     ).join("");
+    const toolsHtml = `
+      <div class="spine-divider" role="separator" aria-hidden="true"></div>
+      <div class="spine-tools">
+        <button type="button" class="spine-node spine-tool-btn" id="spine-game" title="Buka Game RTS Arena Perang Bebas (A)" aria-label="Game Arena">
+          <span>\u{1F3AE}</span><em>Game Arena</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-techtree" title="Buka Pohon Teknologi & Pengetahuan (T)" aria-label="Tech Tree">
+          <span>\u{1F3DB}\uFE0F</span><em>Tech Tree</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-3d" title="Buka Visualisasi Medan 3D Three.js: Rastrigin, Ackley, Sphere (3)" aria-label="Medan 3D">
+          <span>\u{1F3D4}\uFE0F</span><em>Medan 3D</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-codex" title="Buka Buku Teori & LaTeX Codex (B)" aria-label="Buku Teori">
+          <span>\u{1F4D6}</span><em>Buku Teori</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-sound" title="Bisu / Bunyikan SFX Suara (M)" aria-label="Suara">
+          <span id="spine-sound-icon">${sound.isMuted() ? "\u{1F507}" : "\u{1F50A}"}</span><em>Suara</em>
+        </button>
+      </div>
+    `;
+    this.spineEl.innerHTML = chaptersHtml + toolsHtml;
     this.spineEl.addEventListener("click", (e) => {
+      clearTimeout(this.restoreTimer);
       const tick = e.target.closest(".spine-tick");
-      const node = e.target.closest(".spine-node");
-      if (tick) this.goTo(Number(tick.dataset.slide));
-      else if (node) this.goTo(Number(node.dataset.first));
+      const node = e.target.closest(".spine-node:not(.spine-tool-btn)");
+      if (tick) {
+        const targetIndex = Number(tick.dataset.slide);
+        this.previewIndex = null;
+        this.committedIndex = targetIndex;
+        this.goTo(targetIndex);
+        return;
+      }
+      if (node) {
+        const targetIndex = Number(node.dataset.first);
+        this.previewIndex = null;
+        this.committedIndex = targetIndex;
+        this.goTo(targetIndex);
+        return;
+      }
+      if (e.target.closest("#spine-game")) {
+        this.aoeHud?.sandbox?.open();
+      } else if (e.target.closest("#spine-techtree")) {
+        this.aoeHud?.techTree?.open();
+      } else if (e.target.closest("#spine-3d")) {
+        this.aoeHud?.landscapeChooser?.open();
+      } else if (e.target.closest("#spine-codex")) {
+        const slide = this.slides[this.index];
+        this.aoeHud?.codex?.open(slide?.chapter?.id || "masalah");
+      } else if (e.target.closest("#spine-sound")) {
+        const muted = sound.toggleMute();
+        const icon = this.spineEl.querySelector("#spine-sound-icon");
+        if (icon) icon.textContent = muted ? "\u{1F507}" : "\u{1F50A}";
+      }
     });
+
     this.spineEl.addEventListener("pointerover", (e) => {
       if (e.pointerType === "touch") return;
       const tick = e.target.closest(".spine-tick");
-      const index = Number(tick?.dataset.slide);
-      if (tick && Number.isInteger(index) && index !== this.index) this.goTo(index);
+      if (tick) {
+        clearTimeout(this.restoreTimer);
+        const index = Number(tick.dataset.slide);
+        if (Number.isInteger(index) && index !== this.index) {
+          this.previewIndex = index;
+          this.goTo(index, { silent: true });
+        }
+        return;
+      }
+      const tool = e.target.closest(".spine-tool-btn");
+      if (tool) {
+        clearTimeout(this.restoreTimer);
+        if (this.previewIndex !== null && this.committedIndex !== this.index) {
+          this.previewIndex = null;
+          this.goTo(this.committedIndex, { silent: true });
+        }
+      }
     });
+
+    this.spineEl.addEventListener("pointerleave", () => {
+      clearTimeout(this.restoreTimer);
+      this.restoreTimer = setTimeout(() => {
+        if (this.previewIndex !== null && this.committedIndex !== this.index) {
+          this.previewIndex = null;
+          this.goTo(this.committedIndex, { silent: true });
+        }
+      }, 140);
+    });
+
     this.ticks = [...this.spineEl.querySelectorAll(".spine-tick")];
     this.spineChapters = [...this.spineEl.querySelectorAll(".spine-chapter")];
   };
@@ -36860,6 +36930,7 @@ void main() {
       this.aoeHud?.techTree?.close();
       this.aoeHud?.sandbox?.close();
       this.aoeHud?.codex?.close();
+      this.aoeHud?.landscapeChooser?.close();
       this.aoeHud?.landscape3d?.close();
       if (__privateMethod(this, _Presenter_instances, typing_fn).call(this, e.target)) e.target.blur();
       return;
@@ -36881,10 +36952,10 @@ void main() {
     else if (key === "n") run(() => this.toggleNotes());
     else if (key === "b") run(() => this.aoeHud?.codex?.toggle(this.slides[this.index]?.chapter?.id));
     else if (key === "a") run(() => this.aoeHud?.sandbox?.toggle());
-    else if (key === "3" || key === "l") run(() => this.aoeHud?.landscape3d?.toggle());
+    else if (key === "3" || key === "l") run(() => this.aoeHud?.landscapeChooser?.toggle());
     else if (key === "m") run(() => {
       const muted = sound.toggleMute();
-      const icon = document.getElementById("aoe-sound-icon");
+      const icon = document.getElementById("spine-sound-icon");
       if (icon) icon.textContent = muted ? "\u{1F507}" : "\u{1F50A}";
     });
     else if (key === "g" || key === "o") run(() => __privateMethod(this, _Presenter_instances, toggle_fn).call(this, this.overview));
@@ -36893,22 +36964,44 @@ void main() {
     else if (key === "s" && this.hooks?.step) run(() => this.hooks.step());
     else if (key === "r" && this.hooks?.reset) run(() => this.hooks.reset());
   };
-  showActToast_fn = function(number, label) {
-    if (!this.actToast) {
-      this.actToast = document.createElement("div");
-      this.actToast.className = "act-toast";
-      this.actToast.setAttribute("aria-live", "polite");
-      this.actToast.setAttribute("aria-atomic", "true");
-      this.actToast.innerHTML = "<strong></strong><span></span>";
+  showChapterTransition_fn = function(chapterNum, chapterLabel, slideTitle) {
+    if (this.calm) return;
+    if (!this.curtainEl) {
+      this.curtainEl = document.createElement("div");
+      this.curtainEl.className = "chapter-curtain";
+      this.curtainEl.setAttribute("aria-live", "polite");
+      this.frame.appendChild(this.curtainEl);
+      this.curtainEl.addEventListener("click", () => __privateMethod(this, _Presenter_instances, dismissChapterTransition_fn).call(this));
     }
-    this.actToast.querySelector("strong").textContent = `ACT ${number}:`;
-    this.actToast.querySelector("span").textContent = label;
-    this.actToast.classList.remove("visible");
-    this.frame.appendChild(this.actToast);
-    void this.actToast.offsetWidth;
-    this.actToast.classList.add("visible");
-    clearTimeout(this.actToastTimer);
-    this.actToastTimer = setTimeout(() => this.actToast?.classList.remove("visible"), 1450);
+    const numStr = String(chapterNum).padStart(2, "0");
+    this.curtainEl.innerHTML = `
+      <div class="curtain-card">
+        <div class="curtain-number">${numStr}</div>
+        <div class="curtain-line"></div>
+        <div class="curtain-label">${chapterLabel.toUpperCase()}</div>
+        ${slideTitle ? `<div class="curtain-title">${slideTitle}</div>` : ""}
+      </div>
+    `;
+    this.curtainEl.classList.remove("fade-out");
+    this.curtainEl.classList.remove("active");
+    void this.curtainEl.offsetWidth;
+    this.curtainEl.classList.add("active");
+    clearTimeout(this.curtainTimer);
+    clearTimeout(this.curtainFadeTimer);
+    this.curtainFadeTimer = setTimeout(() => {
+      this.curtainEl?.classList.add("fade-out");
+      this.curtainTimer = setTimeout(() => {
+        __privateMethod(this, _Presenter_instances, dismissChapterTransition_fn).call(this);
+      }, 400);
+    }, 1000);
+  };
+  dismissChapterTransition_fn = function() {
+    clearTimeout(this.curtainTimer);
+    clearTimeout(this.curtainFadeTimer);
+    if (this.curtainEl) {
+      this.curtainEl.classList.remove("active");
+      this.curtainEl.classList.remove("fade-out");
+    }
   };
   markOverview_fn = function() {
     this.ovCards.forEach((c, i) => c.classList.toggle("current", i === this.index));
@@ -37704,7 +37797,7 @@ void main() {
     root.innerHTML = `
     <canvas class="cv"></canvas>
     <header class="plate">
-      <span class="plate-tag"><i></i>${tag}</span>
+      ${tag ? `<span class="plate-tag"><i></i>${tag}</span>` : ""}
       <h1 class="plate-title"></h1>
       <p class="plate-sub"></p>
       <div class="plate-beats" aria-hidden="true">${beats.map(() => "<b></b>").join("")}</div>
@@ -37777,9 +37870,9 @@ void main() {
   var fmtInt = (n) => n.toLocaleString("id-ID");
   function drawTitleScene(ctx, { t }) {
     drawBackdrop(ctx, t, "blue");
-    for (let i = 0; i < 26; i++) {
-      const cx = 120 + hash01(i + 3) * 1e3;
-      const cy = 120 + hash01(i + 40) * 860;
+    for (let i = 0; i < 28; i++) {
+      const cx = 100 + hash01(i + 3) * 1720;
+      const cy = 100 + hash01(i + 40) * 880;
       const x = cx + Math.sin(t * (0.4 + hash01(i) * 0.5) + i) * (50 + hash01(i + 9) * 70);
       const y = cy + Math.cos(t * (0.35 + hash01(i + 5) * 0.4) + i * 2) * (40 + hash01(i + 11) * 60);
       const blink = 0.35 + 0.65 * Math.abs(Math.sin(t * (0.8 + hash01(i + 17)) + i));
@@ -37791,15 +37884,6 @@ void main() {
       const y = 130 + i * 110 + Math.sin(t * 1.3 + i * 2) * 40;
       drawBat(ctx, x, y, 22 + i % 3 * 5, { flap: t * 11 + i, angle: Math.sin(t + i) * 0.08 });
     }
-    const loop = t % 11 / 11;
-    drawSchedule(ctx, { x: 900, y: 640, w: 960, h: 300 }, TASKS, VMS, RR_LAYOUT, {
-      tMax: RR.makespan * 1.08,
-      laneColor: COLORS.cyan,
-      labelW: 130,
-      fontScale: 0.78,
-      queue: { x: 760, y: 520 },
-      appear: (idx) => clamp01((loop * 11 - 0.35 * idx) / 0.9) * (loop > 0.88 ? 1 - (loop - 0.88) / 0.12 : 1)
-    });
   }
   var judulSlide = {
     id: "judul",
@@ -37810,16 +37894,23 @@ void main() {
     <p>Hari ini kita bandingkan dua jawaban dari alam: kunang-kunang (Firefly Algorithm) dan kelelawar (Bat Algorithm). Keduanya diuji pada beban kerja dan fungsi tujuan yang sama.</p>`,
     mount(container, ctx) {
       const cleanup = mountStory(container, ctx, {
-        tag: "Strategi Optimasi Komputasi Awan",
-        beats: [{ title: "Firefly vs Bat", html: '<span class="c-fa">Firefly</span> <span class="c-vs">vs</span> <span class="c-ba">Bat</span>', sub: "Dua algoritma terinspirasi alam untuk menjadwalkan tugas di cloud." }],
+        tag: "",
+        beats: [{
+          title: "Firefly Algorithm vs Bat Algorithm",
+          html: '<span class="c-fa">Firefly Algorithm</span><span class="c-vs">vs</span><span class="c-ba">Bat Algorithm</span>',
+          sub: ""
+        }],
         draw: drawTitleScene
       });
       container.classList.add("hero");
       return cleanup;
     }
   };
-  var QUEUE_Y = 372;
-  var SCHED_RECT = { x: 110, y: 470, w: 1700, h: 470 };
+  var QUEUE_GAP = 9;
+  var TOTAL_QUEUE_W = TASKS.reduce((sum, task, i) => sum + task.mi * 0.2 + (i < TASKS.length - 1 ? QUEUE_GAP : 0), 0);
+  var QUEUE_START_X = Math.round((1920 - TOTAL_QUEUE_W) / 2);
+  var QUEUE_Y = 295;
+  var SCHED_RECT = { x: 180, y: 480, w: 1630, h: 460 };
   function drawProblemScene(ctx, { t, bt, beat }) {
     drawBackdrop(ctx, t, "blue");
     const tMax = RR.makespan * 1.12;
@@ -37827,7 +37918,7 @@ void main() {
     ctx.save();
     ctx.globalAlpha = dim;
     if (beat === 0) {
-      let x = 120;
+      let x = QUEUE_START_X;
       TASKS.forEach((task, i) => {
         const w = task.mi * 0.2;
         const bob = Math.sin(t * 1.6 + i) * 6;
@@ -37841,7 +37932,7 @@ void main() {
         drawText(ctx, task.name, x + w / 2, QUEUE_Y + 31 + bob - (1 - enter) * 70, { size: 26, color: COLORS.night, align: "center", weight: 800 });
         drawText(ctx, `${task.mi} MI`, x + w / 2, QUEUE_Y + 90 + bob - (1 - enter) * 70, { size: 19, color: COLORS.muted, align: "center", weight: 600, mono: true });
         ctx.restore();
-        x += w + 9;
+        x += w + QUEUE_GAP;
       });
       drawSchedule(ctx, SCHED_RECT, TASKS, VMS, /* @__PURE__ */ new Map(), { tMax, laneColor: COLORS.blue });
       VMS.forEach((vm, j) => {
@@ -37860,7 +37951,7 @@ void main() {
       drawSchedule(ctx, SCHED_RECT, TASKS, VMS, RR_LAYOUT, {
         tMax,
         laneColor: COLORS.blue,
-        queue: { x: 140, y: QUEUE_Y },
+        queue: { x: QUEUE_START_X, y: QUEUE_Y },
         appear: (idx) => clamp01((bt - 0.3 - 0.26 * idx) / 0.85),
         makespan: bt > 5.6 ? RR.makespan : null,
         ideal: bt > 6.4 ? IDEAL : null
@@ -37994,7 +38085,7 @@ void main() {
       });
     }
   };
-  var LX0 = 150;
+  var LX0 = 180;
   var LX1 = 1770;
   var L_BASE = 950;
   var L_H = 470;
@@ -38654,7 +38745,7 @@ void main() {
     const objectiveBtns = [...root.querySelectorAll(`#${id}-objectives .seg-btn`)];
     wireDrawer(root, id);
     $2(`#${id}-3d-btn`)?.addEventListener("click", () => {
-      window.__aoeHud?.landscape3d?.open(landscape2.id);
+      window.__aoeHud?.landscapeChooser?.open();
     });
     let landscape2 = landscapeById("rastrigin");
     let rate = START_RATE;
@@ -38808,7 +38899,7 @@ void main() {
   // src/slides/faSlides.js
   var FOOD = { x: 1480, y: 700 };
   var N_FLY = 22;
-  var BOX = { x: 120, y: 340, w: 1700, h: 600 };
+  var BOX = { x: 180, y: 340, w: 1640, h: 600 };
   function quality(p) {
     const d = Math.hypot(p.x - FOOD.x, p.y - FOOD.y);
     return Math.exp(-((d / 520) ** 2));
@@ -39070,7 +39161,7 @@ void main() {
       });
     }
   };
-  var PANEL = { x: 640, y: 330, w: 1240, h: 660 };
+  var PANEL = { x: 660, y: 330, w: 1210, h: 660 };
   var SPHERE = landscapeById("sphere");
   var DEMO_GAMMA = 2;
   var DEMO_SPAN = SPHERE.max - SPHERE.min;
@@ -39794,7 +39885,7 @@ void main() {
   var LAYOUT = layoutOf(EVAL);
   var LANE_COLORS = [COLORS.blue, COLORS.cyan, COLORS.purple, COLORS.pink];
   var STEP_LABELS = ["1 \xB7 Posisi = angka", "2 \xB7 Bulatkan jadi VM", "3 \xB7 Jumlahkan waktu", "4 \xB7 Makespan = fitness"];
-  var STEP_X = [230, 640, 1060, 1500];
+  var STEP_X = [290, 690, 1110, 1530];
   function drawFitnessScene(ctx, { t, bt, beat }) {
     drawBackdrop(ctx, t, "gold");
     STEP_LABELS.forEach((label, i) => {
@@ -39807,13 +39898,13 @@ void main() {
       });
     });
     const showChips = beat <= 1;
-    const chipW = 202;
+    const chipW = 194;
     const chipH = 92;
     if (showChips) {
       TASKS2.forEach((task, i) => {
         const col = i % 8;
         const row = Math.floor(i / 8);
-        const x = 70 + col * (chipW + 12);
+        const x = 180 + col * (chipW + 10);
         const y = 350 + row * (chipH + 22);
         const appear = seg(bt, 0.05 * i, 0.5, easeOut);
         const flip = beat === 1 ? seg(bt, 0.1 + 0.07 * i, 0.5) : 0;
@@ -39841,22 +39932,22 @@ void main() {
         ctx.restore();
       });
       if (beat === 0) {
-        drawMath(ctx, "X = (x_1, x_2, \u2026, x_{16}),   x_i \u2208 [0, 4)", 120, 640, { size: 46, color: COLORS.gold });
-        drawText(ctx, "Satu posisi kunang-kunang atau kelelawar = satu daftar angka. Setiap angka mewakili satu tugas.", 120, 730, { size: 32, color: COLORS.muted });
-        drawText(ctx, "Angka ini hanyalah koordinat. Belum ada VM.", 120, 785, { size: 32, color: COLORS.ink });
+        drawMath(ctx, "X = (x_1, x_2, \u2026, x_{16}),   x_i \u2208 [0, 4)", 180, 640, { size: 46, color: COLORS.gold });
+        drawText(ctx, "Satu posisi kunang-kunang atau kelelawar = satu daftar angka. Setiap angka mewakili satu tugas.", 180, 730, { size: 32, color: COLORS.muted });
+        drawText(ctx, "Angka ini hanyalah koordinat. Belum ada VM.", 180, 785, { size: 32, color: COLORS.ink });
       } else {
-        drawMath(ctx, "VM_i = \u230Ax_i\u230B + 1", 120, 640, { size: 46, color: COLORS.gold });
-        drawText(ctx, "Pembulatan ke bawah mengubah koordinat menjadi nomor VM.", 120, 730, { size: 32, color: COLORS.muted });
-        drawText(ctx, "Geser sedikit saja angkanya dan satu tugas bisa pindah VM.", 120, 785, { size: 32, color: COLORS.ink });
+        drawMath(ctx, "VM_i = \u230Ax_i\u230B + 1", 180, 640, { size: 46, color: COLORS.gold });
+        drawText(ctx, "Pembulatan ke bawah mengubah koordinat menjadi nomor VM.", 180, 730, { size: 32, color: COLORS.muted });
+        drawText(ctx, "Geser sedikit saja angkanya dan satu tugas bisa pindah VM.", 180, 785, { size: 32, color: COLORS.ink });
       }
       return;
     }
-    const rect = { x: 100, y: 400, w: 1720, h: 420 };
+    const rect = { x: 180, y: 400, w: 1630, h: 420 };
     const tMax = Math.max(EVAL.makespan * 1.1, 1);
     drawSchedule(ctx, rect, TASKS2, VMS2, LAYOUT, {
       tMax,
       laneColor: COLORS.blue,
-      queue: { x: 140, y: 340 },
+      queue: { x: 200, y: 340 },
       appear: beat === 2 ? (idx) => clamp01((bt - 0.15 * idx) / 0.8) : () => 1,
       makespan: beat === 3 ? EVAL.makespan : null
     });
@@ -39878,11 +39969,11 @@ void main() {
     if (beat === 2) {
       const ex = TASKS2[2];
       const vm = VMS2[ASSIGN[2]];
-      drawMath(ctx, `t = MI / MIPS = ${ex.mi} / ${vm.mips} = ${(ex.mi / vm.mips).toFixed(2)} s   (contoh ${ex.name} di VM-${ASSIGN[2] + 1})`, 100, 880, { size: 34, color: COLORS.gold, alpha: seg(bt, 0.6, 0.6) });
-      drawMath(ctx, "L_j = \u03A3 t_{ij}   untuk semua tugas i di VM j", 100, 940, { size: 34, color: COLORS.ink, alpha: seg(bt, 2.4, 0.6) });
+      drawMath(ctx, `t = MI / MIPS = ${ex.mi} / ${vm.mips} = ${(ex.mi / vm.mips).toFixed(2)} s   (contoh ${ex.name} di VM-${ASSIGN[2] + 1})`, 180, 880, { size: 34, color: COLORS.gold, alpha: seg(bt, 0.6, 0.6) });
+      drawMath(ctx, "L_j = \u03A3 t_{ij}   untuk semua tugas i di VM j", 180, 940, { size: 34, color: COLORS.ink, alpha: seg(bt, 2.4, 0.6) });
     } else {
-      drawMath(ctx, "F(X) = max_j L_j + 0.001 \xB7 \u03C3(L)", 100, 890, { size: 44, color: COLORS.gold });
-      drawText(ctx, `makespan = ${EVAL.makespan.toFixed(2)} s di VM-${EVAL.vmLoads.indexOf(EVAL.makespan) + 1}.   Suku \u03C3 hanya pemecah seri (${TIE_BREAK}), tidak mengubah urutan makespan.`, 100, 950, {
+      drawMath(ctx, "F(X) = max_j L_j + 0.001 \xB7 \u03C3(L)", 180, 890, { size: 44, color: COLORS.gold });
+      drawText(ctx, `makespan = ${EVAL.makespan.toFixed(2)} s di VM-${EVAL.vmLoads.indexOf(EVAL.makespan) + 1}.   Suku \u03C3 hanya pemecah seri (${TIE_BREAK}), tidak mengubah urutan makespan.`, 180, 950, {
         size: 27,
         color: COLORS.muted
       });
@@ -39930,8 +40021,8 @@ void main() {
   function drawEquations(ctx, { t, bt, beat }) {
     drawBackdrop(ctx, t, "blue");
     const cols = [
-      { x: 64, w: 880, color: FA_COLOR, light: COLORS.cyanLight, title: "Firefly", rows: FA_EQ },
-      { x: 976, w: 880, color: BA_COLOR, light: COLORS.purpleLight, title: "Bat", rows: BA_EQ }
+      { x: 180, w: 790, color: FA_COLOR, light: COLORS.cyanLight, title: "Firefly", rows: FA_EQ },
+      { x: 1000, w: 790, color: BA_COLOR, light: COLORS.purpleLight, title: "Bat", rows: BA_EQ }
     ];
     cols.forEach((col) => {
       ctx.fillStyle = hexToRgba(col.color, 0.1);

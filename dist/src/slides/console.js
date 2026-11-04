@@ -155,7 +155,7 @@ export function mountConsole(root, { reducedMotion, registerHooks }, spec) {
   wireDrawer(root, id);
 
   $(`#${id}-3d-btn`)?.addEventListener('click', () => {
-    window.__aoeHud?.landscape3d?.open(landscape.id);
+    window.__aoeHud?.landscapeChooser?.open();
   });
 
   let landscape = landscapeById('rastrigin');

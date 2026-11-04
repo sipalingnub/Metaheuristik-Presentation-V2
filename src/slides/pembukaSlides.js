@@ -37,10 +37,10 @@ const fmtInt = (n) => n.toLocaleString('id-ID');
 function drawTitleScene(ctx, { t }) {
   drawBackdrop(ctx, t, 'blue');
 
-  // Kunang-kunang melayang di sisi kiri dan tengah
-  for (let i = 0; i < 26; i++) {
-    const cx = 120 + hash01(i + 3) * 1000;
-    const cy = 120 + hash01(i + 40) * 860;
+  // Kunang-kunang melayang di seluruh layar
+  for (let i = 0; i < 28; i++) {
+    const cx = 100 + hash01(i + 3) * 1720;
+    const cy = 100 + hash01(i + 40) * 880;
     const x = cx + Math.sin(t * (0.4 + hash01(i) * 0.5) + i) * (50 + hash01(i + 9) * 70);
     const y = cy + Math.cos(t * (0.35 + hash01(i + 5) * 0.4) + i * 2) * (40 + hash01(i + 11) * 60);
     const blink = 0.35 + 0.65 * Math.abs(Math.sin(t * (0.8 + hash01(i + 17)) + i));
@@ -54,17 +54,6 @@ function drawTitleScene(ctx, { t }) {
     const y = 130 + i * 110 + Math.sin(t * 1.3 + i * 2) * 40;
     drawBat(ctx, x, y, 22 + (i % 3) * 5, { flap: t * 11 + i, angle: Math.sin(t + i) * 0.08 });
   }
-
-  // Tugas masuk ke VM (ilustrasi jadwal Round-Robin yang berulang)
-  const loop = (t % 11) / 11;
-  drawSchedule(ctx, { x: 900, y: 640, w: 960, h: 300 }, TASKS, VMS, RR_LAYOUT, {
-    tMax: RR.makespan * 1.08,
-    laneColor: COLORS.cyan,
-    labelW: 130,
-    fontScale: 0.78,
-    queue: { x: 760, y: 520 },
-    appear: (idx) => clamp01((loop * 11 - 0.35 * idx) / 0.9) * (loop > 0.88 ? 1 - (loop - 0.88) / 0.12 : 1)
-  });
 }
 
 const judulSlide = {
@@ -76,8 +65,12 @@ const judulSlide = {
     <p>Hari ini kita bandingkan dua jawaban dari alam: kunang-kunang (Firefly Algorithm) dan kelelawar (Bat Algorithm). Keduanya diuji pada beban kerja dan fungsi tujuan yang sama.</p>`,
   mount(container, ctx) {
     const cleanup = mountStory(container, ctx, {
-      tag: 'Strategi Optimasi Komputasi Awan',
-      beats: [{ title: 'Firefly vs Bat', html: '<span class="c-fa">Firefly</span> <span class="c-vs">vs</span> <span class="c-ba">Bat</span>', sub: 'Dua algoritma terinspirasi alam untuk menjadwalkan tugas di cloud.' }],
+      tag: '',
+      beats: [{
+        title: 'Firefly Algorithm vs Bat Algorithm',
+        html: '<span class="c-fa">Firefly Algorithm</span><span class="c-vs">vs</span><span class="c-ba">Bat Algorithm</span>',
+        sub: ''
+      }],
       draw: drawTitleScene
     });
 
@@ -88,8 +81,11 @@ const judulSlide = {
 
 /* ---------- Masalah ---------- */
 
-const QUEUE_Y = 372;
-const SCHED_RECT = { x: 110, y: 470, w: 1700, h: 470 };
+const QUEUE_GAP = 9;
+const TOTAL_QUEUE_W = TASKS.reduce((sum, task, i) => sum + task.mi * 0.2 + (i < TASKS.length - 1 ? QUEUE_GAP : 0), 0);
+const QUEUE_START_X = Math.round((1920 - TOTAL_QUEUE_W) / 2);
+const QUEUE_Y = 295;
+const SCHED_RECT = { x: 180, y: 480, w: 1630, h: 460 };
 
 function drawProblemScene(ctx, { t, bt, beat }) {
   drawBackdrop(ctx, t, 'blue');
@@ -99,8 +95,8 @@ function drawProblemScene(ctx, { t, bt, beat }) {
   ctx.save();
   ctx.globalAlpha = dim;
   if (beat === 0) {
-    // Antrean tugas: lebar chip sebanding panjang tugas (MI)
-    let x = 120;
+    // Antrean tugas: lebar chip sebanding panjang tugas (MI), diposisikan di tengah panggung
+    let x = QUEUE_START_X;
     TASKS.forEach((task, i) => {
       const w = task.mi * 0.2;
       const bob = Math.sin(t * 1.6 + i) * 6;
@@ -114,7 +110,7 @@ function drawProblemScene(ctx, { t, bt, beat }) {
       drawText(ctx, task.name, x + w / 2, QUEUE_Y + 31 + bob - (1 - enter) * 70, { size: 26, color: COLORS.night, align: 'center', weight: 800 });
       drawText(ctx, `${task.mi} MI`, x + w / 2, QUEUE_Y + 90 + bob - (1 - enter) * 70, { size: 19, color: COLORS.muted, align: 'center', weight: 600, mono: true });
       ctx.restore();
-      x += w + 9;
+      x += w + QUEUE_GAP;
     });
     drawSchedule(ctx, SCHED_RECT, TASKS, VMS, new Map(), { tMax, laneColor: COLORS.blue });
     VMS.forEach((vm, j) => {
@@ -133,7 +129,7 @@ function drawProblemScene(ctx, { t, bt, beat }) {
     drawSchedule(ctx, SCHED_RECT, TASKS, VMS, RR_LAYOUT, {
       tMax,
       laneColor: COLORS.blue,
-      queue: { x: 140, y: QUEUE_Y },
+      queue: { x: QUEUE_START_X, y: QUEUE_Y },
       appear: (idx) => clamp01((bt - 0.3 - 0.26 * idx) / 0.85),
       makespan: bt > 5.6 ? RR.makespan : null,
       ideal: bt > 6.4 ? IDEAL : null
@@ -283,7 +279,7 @@ const masalahSlide = {
 
 /* ---------- Lanskap pencarian ---------- */
 
-const LX0 = 150;
+const LX0 = 180;
 const LX1 = 1770;
 const L_BASE = 950;
 const L_H = 470;
@@ -352,7 +348,7 @@ function drawTerrain(ctx, t, alpha = 1) {
   ctx.stroke();
   ctx.restore();
   drawText(ctx, 'jadwal yang dicoba →', LX1, L_BASE + 36, { size: 24, color: COLORS.muted, align: 'right', weight: 600 });
-  drawText(ctx, 'waktu selesai ↑', LX0 - 6, L_BASE - L_H - 32, { size: 24, color: COLORS.muted, weight: 600 });
+  drawText(ctx, 'waktu selesai ↑', LX0, L_BASE - L_H - 32, { size: 24, color: COLORS.muted, weight: 600 });
 }
 
 function drawBall(ctx, u, color = COLORS.gold, r = 22, lift = 0) {

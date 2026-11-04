@@ -60,7 +60,7 @@
 @keyframes rise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
 
 /* Jejak tahap bernomor di kiri */
-.trail { position: absolute; left: 130px; top: 340px; z-index: 4; margin: 0; padding: 0; list-style: none; }
+.trail { position: absolute; left: 180px; top: 340px; z-index: 4; margin: 0; padding: 0; list-style: none; }
 .trail li {
   position: relative;
   display: flex;

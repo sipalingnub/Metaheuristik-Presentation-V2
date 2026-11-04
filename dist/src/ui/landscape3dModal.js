@@ -198,6 +198,7 @@ export class Landscape3DModal {
             </div>
 
             <!-- Kamera Orbit & Tutup -->
+            <button type="button" id="sky-btn-portal" class="sky-icon-btn" title="Pilih Visualisasi 3D Lain (Firefly / Bat)">🌐 Portal 3D</button>
             <button type="button" id="sky-toggle-rotate" class="sky-icon-btn" title="Putar Kamera Otomatis">🎥 Orbit</button>
             <button type="button" id="sky-btn-close" class="sky-icon-btn close-btn" title="Tutup Tampilan 3D">&times;</button>
           </div>
@@ -1821,6 +1822,12 @@ export class Landscape3DModal {
     });
     this.modal.querySelector('#sky-agent-delete')?.addEventListener('click', () => {
       this.#destroySelectedAgent();
+    });
+
+    // 0. Portal 3D
+    this.modal.querySelector('#sky-btn-portal')?.addEventListener('click', () => {
+      this.close();
+      window.__aoeHud?.landscapeChooser?.open();
     });
 
     // 1. Tutup

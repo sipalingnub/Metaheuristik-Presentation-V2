@@ -16,7 +16,7 @@
 
 .slides, .slide { position: absolute; inset: 0; }
 
-/* ---------- Transisi slide sederhana dan penanda Act ---------- */
+/* ---------- Transisi slide dan tirai bab ---------- */
 
 .slide { background: transparent; }
 .slide-fade-in { animation: slide-fade-in 220ms ease-out both; }
@@ -24,43 +24,97 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.act-toast {
+/* ---------- Transisi Bab: Halaman Kosong Sinematik ---------- */
+
+.chapter-curtain {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 80;
-  display: grid;
-  gap: 7px;
-  min-width: 290px;
-  padding: 22px 34px;
-  border: 1px solid rgba(250, 204, 21, 0.6);
-  border-radius: 18px;
-  background: rgba(5, 12, 39, 0.92);
-  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.52), inset 0 0 24px rgba(250, 204, 21, 0.08);
-  color: #fff;
-  text-align: center;
-  pointer-events: none;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(1000px 600px at 50% 45%, rgba(15, 23, 42, 0.98), #030716 85%),
+    linear-gradient(180deg, #020617, #04091e);
+  backdrop-filter: blur(24px);
   opacity: 0;
-  transform: translate(-50%, -44%) scale(0.96);
-  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+  transition: opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.act-toast strong {
-  color: #facc15;
-  font-family: var(--font-display);
-  font-size: 30px;
-  letter-spacing: 0.12em;
-}
-.act-toast span { color: #e2e8f0; font-size: 17px; }
-.act-toast.visible {
+
+.chapter-curtain.active {
   opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.chapter-curtain.fade-out {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms ease-out;
+}
+
+.curtain-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transform: translateY(16px) scale(0.96);
+  opacity: 0;
+  transition: transform 450ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease;
+}
+
+.chapter-curtain.active .curtain-card {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.curtain-number {
+  font-family: var(--font-display);
+  font-size: 110px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: linear-gradient(135deg, #a5f3fc 0%, #22d3ee 50%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 45px rgba(34, 211, 238, 0.5));
+}
+
+.curtain-line {
+  width: 90px;
+  height: 3px;
+  margin: 18px 0 20px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.curtain-label {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: #f1f5f9;
+  text-transform: uppercase;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.curtain-title {
+  margin-top: 10px;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.03em;
 }
 @media (prefers-reduced-motion: reduce) {
   .slide-fade-in { animation: none; }
-  .act-toast { transition: none; }
+  .chapter-curtain, .curtain-card { transition: none !important; }
 }
 
-/* ---------- Spine bab ---------- */
+/* ---------- Spine bab & Unified Left Navbar ---------- */
 
 .spine {
   position: absolute;
@@ -70,8 +124,14 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 7px;
   transform: translateY(-50%);
+  padding: 10px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 26px;
+  background: rgba(8, 14, 32, 0.72);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 .spine-chapter { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 
@@ -84,6 +144,7 @@
   border: 0;
   background: none;
   color: var(--dim);
+  cursor: pointer;
 }
 .spine-node span {
   display: grid;
@@ -105,13 +166,13 @@
   padding: 0;
   border-radius: 999px;
   background: var(--glass-strong);
-  font-size: 19px;
+  font-size: 18px;
   font-style: normal;
   font-weight: 700;
   opacity: 0;
   transition: all 260ms ease;
 }
-.spine-node:hover em { max-width: 150px; padding: 7px 16px; opacity: 1; }
+.spine-node:hover em { max-width: 170px; padding: 7px 16px; opacity: 1; }
 .spine-node:hover span { border-color: var(--accent); color: var(--ink); }
 .spine-chapter.current .spine-node span {
   border-color: var(--accent);
@@ -121,10 +182,15 @@
 }
 .spine-chapter.current .spine-node { color: var(--accent); }
 
+.spine-chapter .spine-node em {
+  display: none;
+}
+
 .spine-ticks {
   position: absolute;
-  top: 0;
-  left: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 50px;
   z-index: 31;
   display: none;
   align-items: center;
@@ -136,10 +202,30 @@
   background: var(--glass-strong);
   box-shadow: 0 5px 16px rgba(0, 0, 0, 0.48);
 }
-.spine-chapter.current .spine-ticks,
+
+.spine-ticks::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: -14px;
+  width: 16px;
+}
+
 .spine-chapter:hover .spine-ticks,
-.spine-chapter:focus-within .spine-ticks { display: flex; }
-.spine-tick { width: 18px; height: 28px; padding: 4px 6px; border: 0; border-radius: 3px; background: none; cursor: pointer; }
+.spine-chapter:focus-within .spine-ticks {
+  display: flex;
+}
+.spine-tick {
+  position: relative;
+  width: 18px;
+  height: 28px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
 .spine-tick i {
   display: block;
   width: 100%;
@@ -151,6 +237,71 @@
 .spine-tick:hover i,
 .spine-tick:focus-visible i { transform: scale(1.2); }
 .spine-tick.current i { outline: 1px solid var(--ink); }
+
+/* Preview tooltip saat hover pada garis slide tanpa berpindah sebelum diklik */
+.spine-tick::after {
+  content: attr(data-title);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 6px 12px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 8px;
+  background: rgba(6, 13, 36, 0.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 16px rgba(34, 211, 238, 0.18);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+  z-index: 60;
+}
+.spine-tick:hover::after,
+.spine-tick:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.spine-divider {
+  width: 32px;
+  height: 2px;
+  margin: 6px 4px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  border-radius: 1px;
+}
+
+.spine-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.spine-tool-btn span {
+  font-size: 17px;
+  border-color: rgba(212, 175, 55, 0.3);
+  background: rgba(20, 28, 48, 0.75);
+}
+
+.spine-tool-btn:hover span {
+  border-color: #d4af37;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.45);
+  transform: scale(1.06);
+}
+
+.spine-tool-btn:hover em {
+  color: #facc15;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: rgba(15, 23, 42, 0.95);
+}
 
 /* ---------- Toolbar, panah tepi, penghitung ---------- */
 
@@ -192,7 +343,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round
   opacity: 0;
   transition: opacity 240ms ease;
 }
-.edge-prev { left: 92px; }
+.edge-prev { left: 8px; display: none; }
 .edge-next { right: 22px; }
 .frame:hover .edge { opacity: 0.32; }
 .edge:hover { opacity: 1 !important; border-color: var(--accent); color: var(--accent); }

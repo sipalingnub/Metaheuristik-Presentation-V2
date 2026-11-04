@@ -11,7 +11,7 @@ export const CODEX_CHAPTER_CONTENT = {
   masalah: {
     title: 'Analisis Masalah Penjadwalan Komputasi Awan (Cloud Scheduling)',
     chapterNum: '1 & 2',
-    eraName: 'Act 1 · Masalah & Penjadwalan Cloud',
+    eraName: 'Bab 1 · Masalah & Penjadwalan Cloud',
     icon: '🏰',
     sections: [
       {
@@ -47,7 +47,7 @@ export const CODEX_CHAPTER_CONTENT = {
   firefly: {
     title: 'Bedah Ilmiah Algoritma Kunang-Kunang (Firefly Algorithm)',
     chapterNum: '3 & 4',
-    eraName: 'Act 2 · Algoritma Firefly',
+    eraName: 'Bab 2 · Algoritma Firefly',
     icon: '💡',
     sections: [
       {
@@ -89,7 +89,7 @@ export const CODEX_CHAPTER_CONTENT = {
   bat: {
     title: 'Bedah Ilmiah Algoritma Kelelawar (Bat Algorithm)',
     chapterNum: '5 & 6',
-    eraName: 'Act 3 · Algoritma Bat',
+    eraName: 'Bab 3 · Algoritma Bat',
     icon: '🦇',
     sections: [
       {
@@ -130,7 +130,7 @@ export const CODEX_CHAPTER_CONTENT = {
   cloud: {
     title: 'Model Penerapan & Perbandingan di Cloud Computing',
     chapterNum: '7, 8, 9 & 10',
-    eraName: 'Act 4 & 5 · Penerapan & Sintesis',
+    eraName: 'Bab 4 & 5 · Penerapan & Sintesis',
     icon: '⚔️',
     sections: [
       {

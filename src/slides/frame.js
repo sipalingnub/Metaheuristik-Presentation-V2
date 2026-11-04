@@ -18,7 +18,7 @@ export function mountStory(root, { reducedMotion, registerHooks }, spec) {
   root.innerHTML = `
     <canvas class="cv"></canvas>
     <header class="plate">
-      <span class="plate-tag"><i></i>${tag}</span>
+      ${tag ? `<span class="plate-tag"><i></i>${tag}</span>` : ''}
       <h1 class="plate-title"></h1>
       <p class="plate-sub"></p>
       <div class="plate-beats" aria-hidden="true">${beats.map(() => '<b></b>').join('')}</div>

@@ -1,4 +1,4 @@
-/**
+/*  *//**
  * Bab Model: dari posisi agen menjadi jadwal (fungsi fitness), lalu persamaan FA dan BA.
  * Matematika baru muncul setelah penonton melihat gerakannya di bab sebelumnya.
  */
@@ -26,7 +26,7 @@ const LAYOUT = layoutOf(EVAL);
 const LANE_COLORS = [COLORS.blue, COLORS.cyan, COLORS.purple, COLORS.pink];
 
 const STEP_LABELS = ['1 · Posisi = angka', '2 · Bulatkan jadi VM', '3 · Jumlahkan waktu', '4 · Makespan = fitness'];
-const STEP_X = [230, 640, 1060, 1500];
+const STEP_X = [290, 690, 1110, 1530];
 
 function drawFitnessScene(ctx, { t, bt, beat }) {
   drawBackdrop(ctx, t, 'gold');
@@ -44,13 +44,13 @@ function drawFitnessScene(ctx, { t, bt, beat }) {
 
   // Vektor posisi: dua baris, 8 chip per baris
   const showChips = beat <= 1;
-  const chipW = 202;
+  const chipW = 194;
   const chipH = 92;
   if (showChips) {
     TASKS.forEach((task, i) => {
       const col = i % 8;
       const row = Math.floor(i / 8);
-      const x = 70 + col * (chipW + 12);
+      const x = 180 + col * (chipW + 10);
       const y = 350 + row * (chipH + 22);
       const appear = seg(bt, 0.05 * i, 0.5, easeOut);
       const flip = beat === 1 ? seg(bt, 0.1 + 0.07 * i, 0.5) : 0;
@@ -78,23 +78,23 @@ function drawFitnessScene(ctx, { t, bt, beat }) {
       ctx.restore();
     });
     if (beat === 0) {
-      drawMath(ctx, 'X = (x_1, x_2, …, x_{16}),   x_i ∈ [0, 4)', 120, 640, { size: 46, color: COLORS.gold });
-      drawText(ctx, 'Satu posisi kunang-kunang atau kelelawar = satu daftar angka. Setiap angka mewakili satu tugas.', 120, 730, { size: 32, color: COLORS.muted });
-      drawText(ctx, 'Angka ini hanyalah koordinat. Belum ada VM.', 120, 785, { size: 32, color: COLORS.ink });
+      drawMath(ctx, 'X = (x_1, x_2, …, x_{16}),   x_i ∈ [0, 4)', 180, 640, { size: 46, color: COLORS.gold });
+      drawText(ctx, 'Satu posisi kunang-kunang atau kelelawar = satu daftar angka. Setiap angka mewakili satu tugas.', 180, 730, { size: 32, color: COLORS.muted });
+      drawText(ctx, 'Angka ini hanyalah koordinat. Belum ada VM.', 180, 785, { size: 32, color: COLORS.ink });
     } else {
-      drawMath(ctx, 'VM_i = ⌊x_i⌋ + 1', 120, 640, { size: 46, color: COLORS.gold });
-      drawText(ctx, 'Pembulatan ke bawah mengubah koordinat menjadi nomor VM.', 120, 730, { size: 32, color: COLORS.muted });
-      drawText(ctx, 'Geser sedikit saja angkanya dan satu tugas bisa pindah VM.', 120, 785, { size: 32, color: COLORS.ink });
+      drawMath(ctx, 'VM_i = ⌊x_i⌋ + 1', 180, 640, { size: 46, color: COLORS.gold });
+      drawText(ctx, 'Pembulatan ke bawah mengubah koordinat menjadi nomor VM.', 180, 730, { size: 32, color: COLORS.muted });
+      drawText(ctx, 'Geser sedikit saja angkanya dan satu tugas bisa pindah VM.', 180, 785, { size: 32, color: COLORS.ink });
     }
     return;
   }
 
-  const rect = { x: 100, y: 400, w: 1720, h: 420 };
+  const rect = { x: 180, y: 400, w: 1630, h: 420 };
   const tMax = Math.max(EVAL.makespan * 1.1, 1);
   drawSchedule(ctx, rect, TASKS, VMS, LAYOUT, {
     tMax,
     laneColor: COLORS.blue,
-    queue: { x: 140, y: 340 },
+    queue: { x: 200, y: 340 },
     appear: beat === 2 ? (idx) => clamp01((bt - 0.15 * idx) / 0.8) : () => 1,
     makespan: beat === 3 ? EVAL.makespan : null
   });
@@ -118,11 +118,11 @@ function drawFitnessScene(ctx, { t, bt, beat }) {
   if (beat === 2) {
     const ex = TASKS[2];
     const vm = VMS[ASSIGN[2]];
-    drawMath(ctx, `t = MI / MIPS = ${ex.mi} / ${vm.mips} = ${(ex.mi / vm.mips).toFixed(2)} s   (contoh ${ex.name} di VM-${ASSIGN[2] + 1})`, 100, 880, { size: 34, color: COLORS.gold, alpha: seg(bt, 0.6, 0.6) });
-    drawMath(ctx, 'L_j = Σ t_{ij}   untuk semua tugas i di VM j', 100, 940, { size: 34, color: COLORS.ink, alpha: seg(bt, 2.4, 0.6) });
+    drawMath(ctx, `t = MI / MIPS = ${ex.mi} / ${vm.mips} = ${(ex.mi / vm.mips).toFixed(2)} s   (contoh ${ex.name} di VM-${ASSIGN[2] + 1})`, 180, 880, { size: 34, color: COLORS.gold, alpha: seg(bt, 0.6, 0.6) });
+    drawMath(ctx, 'L_j = Σ t_{ij}   untuk semua tugas i di VM j', 180, 940, { size: 34, color: COLORS.ink, alpha: seg(bt, 2.4, 0.6) });
   } else {
-    drawMath(ctx, 'F(X) = max_j L_j + 0.001 · σ(L)', 100, 890, { size: 44, color: COLORS.gold });
-    drawText(ctx, `makespan = ${EVAL.makespan.toFixed(2)} s di VM-${EVAL.vmLoads.indexOf(EVAL.makespan) + 1}.   Suku σ hanya pemecah seri (${TIE_BREAK}), tidak mengubah urutan makespan.`, 100, 950, {
+    drawMath(ctx, 'F(X) = max_j L_j + 0.001 · σ(L)', 180, 890, { size: 44, color: COLORS.gold });
+    drawText(ctx, `makespan = ${EVAL.makespan.toFixed(2)} s di VM-${EVAL.vmLoads.indexOf(EVAL.makespan) + 1}.   Suku σ hanya pemecah seri (${TIE_BREAK}), tidak mengubah urutan makespan.`, 180, 950, {
       size: 27,
       color: COLORS.muted
     });
@@ -176,8 +176,8 @@ const BA_EQ = [
 function drawEquations(ctx, { t, bt, beat }) {
   drawBackdrop(ctx, t, 'blue');
   const cols = [
-    { x: 64, w: 880, color: FA_COLOR, light: COLORS.cyanLight, title: 'Firefly', rows: FA_EQ },
-    { x: 976, w: 880, color: BA_COLOR, light: COLORS.purpleLight, title: 'Bat', rows: BA_EQ }
+    { x: 180, w: 790, color: FA_COLOR, light: COLORS.cyanLight, title: 'Firefly', rows: FA_EQ },
+    { x: 1000, w: 790, color: BA_COLOR, light: COLORS.purpleLight, title: 'Bat', rows: BA_EQ }
   ];
   cols.forEach((col) => {
     ctx.fillStyle = hexToRgba(col.color, 0.1);

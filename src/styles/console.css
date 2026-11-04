@@ -3,7 +3,8 @@
 .con { position: absolute; inset: 0; --tone: var(--cyan); }
 .con-map { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-.plate-compact .plate-title { margin: 14px 0 0; font-size: 54px; }
+.plate-compact { top: 36px; }
+.plate-compact .plate-title { margin: 18px 0 0; font-size: 52px; }
 .plate-compact .plate-sub, .plate-compact .plate-beats { display: none; }
 
 /* ---------- Kartu kaca ---------- */
@@ -27,7 +28,7 @@
   text-transform: uppercase;
 }
 
-.hud-phases { left: 130px; top: 200px; width: 410px; }
+.hud-phases { left: 180px; top: 200px; width: 410px; }
 .hud-phases ol { margin: 0; padding: 0; list-style: none; }
 .hud-phases li {
   display: flex;

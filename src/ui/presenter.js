@@ -13,13 +13,7 @@ import { sound } from '../core/sound.js';
 const STAGE_W = 1920;
 const STAGE_H = 1080;
 const $ = (id) => document.getElementById(id);
-const ACTS = [
-  { chapters: ['masalah', 'metaheuristik'], label: 'Krisis Cloud & NP-Hard' },
-  { chapters: ['firefly'], label: 'Ordo Kunang-Kunang (FA)' },
-  { chapters: ['bat'], label: 'Legiun Kelelawar (BA)' },
-  { chapters: ['model', 'cloud'], label: 'Perang Penjadwalan Cloud' },
-  { chapters: ['hasil', 'penutup'], label: 'Sintesis & Analisis Hasil' }
-];
+
 
 export class Presenter {
   constructor(slides) {
@@ -30,8 +24,12 @@ export class Presenter {
     this.cleanup = null;
     this.hooks = null;
     this.calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    this.actToast = null;
-    this.actToastTimer = null;
+    this.curtainEl = null;
+    this.curtainTimer = null;
+    this.curtainFadeTimer = null;
+    this.committedIndex = 0;
+    this.previewIndex = null;
+    this.restoreTimer = null;
 
     this.frame = $('frame');
     this.slidesEl = $('slides');
@@ -84,7 +82,7 @@ export class Presenter {
   }
 
   #buildSpine() {
-    this.spineEl.innerHTML = this.chapters
+    const chaptersHtml = this.chapters
       .map(
         (ch, n) => `
         <div class="spine-chapter" data-chapter="${ch.id}">
@@ -93,24 +91,106 @@ export class Presenter {
           </button>
           <div class="spine-ticks">
             ${ch.indices
-              .map((i) => `<button type="button" class="spine-tick" data-slide="${i}" title="${this.slides[i].title}" aria-label="Slide ${i + 1}: ${this.slides[i].title}"><i></i></button>`)
+              .map((i) => `<button type="button" class="spine-tick" data-slide="${i}" data-title="Slide ${i + 1}: ${this.slides[i].title}" title="${this.slides[i].title}" aria-label="Slide ${i + 1}: ${this.slides[i].title}"><i></i></button>`)
               .join('')}
           </div>
         </div>`
       )
       .join('');
+
+    const toolsHtml = `
+      <div class="spine-divider" role="separator" aria-hidden="true"></div>
+      <div class="spine-tools">
+        <button type="button" class="spine-node spine-tool-btn" id="spine-game" title="Buka Game RTS Arena Perang Bebas (A)" aria-label="Game Arena">
+          <span>🎮</span><em>Game Arena</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-techtree" title="Buka Pohon Teknologi & Pengetahuan (T)" aria-label="Tech Tree">
+          <span>🏛️</span><em>Tech Tree</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-3d" title="Buka Visualisasi Medan 3D Three.js: Rastrigin, Ackley, Sphere (3)" aria-label="Medan 3D">
+          <span>🏔️</span><em>Medan 3D</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-codex" title="Buka Buku Teori & LaTeX Codex (B)" aria-label="Buku Teori">
+          <span>📖</span><em>Buku Teori</em>
+        </button>
+        <button type="button" class="spine-node spine-tool-btn" id="spine-sound" title="Bisu / Bunyikan SFX Suara (M)" aria-label="Suara">
+          <span id="spine-sound-icon">${sound.isMuted() ? '🔇' : '🔊'}</span><em>Suara</em>
+        </button>
+      </div>
+    `;
+
+    this.spineEl.innerHTML = chaptersHtml + toolsHtml;
+
     this.spineEl.addEventListener('click', (e) => {
+      clearTimeout(this.restoreTimer);
       const tick = e.target.closest('.spine-tick');
-      const node = e.target.closest('.spine-node');
-      if (tick) this.goTo(Number(tick.dataset.slide));
-      else if (node) this.goTo(Number(node.dataset.first));
+      const node = e.target.closest('.spine-node:not(.spine-tool-btn)');
+      if (tick) {
+        const targetIndex = Number(tick.dataset.slide);
+        this.previewIndex = null;
+        this.committedIndex = targetIndex;
+        this.goTo(targetIndex);
+        return;
+      }
+      if (node) {
+        const targetIndex = Number(node.dataset.first);
+        this.previewIndex = null;
+        this.committedIndex = targetIndex;
+        this.goTo(targetIndex);
+        return;
+      }
+
+      // Feature tools in unified left navbar
+      if (e.target.closest('#spine-game')) {
+        this.aoeHud?.sandbox?.open();
+      } else if (e.target.closest('#spine-techtree')) {
+        this.aoeHud?.techTree?.open();
+      } else if (e.target.closest('#spine-3d')) {
+        this.aoeHud?.landscapeChooser?.open();
+      } else if (e.target.closest('#spine-codex')) {
+        const slide = this.slides[this.index];
+        this.aoeHud?.codex?.open(slide?.chapter?.id || 'masalah');
+      } else if (e.target.closest('#spine-sound')) {
+        const muted = sound.toggleMute();
+        const icon = this.spineEl.querySelector('#spine-sound-icon');
+        if (icon) icon.textContent = muted ? '🔇' : '🔊';
+      }
     });
+
+    // Preview konten slide saat cursor hover pada garis indikator slide (tanpa pindah beneran sebelum diklik)
     this.spineEl.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
       const tick = e.target.closest('.spine-tick');
-      const index = Number(tick?.dataset.slide);
-      if (tick && Number.isInteger(index) && index !== this.index) this.goTo(index);
+      if (tick) {
+        clearTimeout(this.restoreTimer);
+        const index = Number(tick.dataset.slide);
+        if (Number.isInteger(index) && index !== this.index) {
+          this.previewIndex = index;
+          this.goTo(index, { silent: true });
+        }
+        return;
+      }
+      const tool = e.target.closest('.spine-tool-btn');
+      if (tool) {
+        clearTimeout(this.restoreTimer);
+        if (this.previewIndex !== null && this.committedIndex !== this.index) {
+          this.previewIndex = null;
+          this.goTo(this.committedIndex, { silent: true });
+        }
+      }
     });
+
+    // Kembalikan ke slide semula jika kursor meninggalkan bilah tanpa klik
+    this.spineEl.addEventListener('pointerleave', () => {
+      clearTimeout(this.restoreTimer);
+      this.restoreTimer = setTimeout(() => {
+        if (this.previewIndex !== null && this.committedIndex !== this.index) {
+          this.previewIndex = null;
+          this.goTo(this.committedIndex, { silent: true });
+        }
+      }, 140);
+    });
+
     this.ticks = [...this.spineEl.querySelectorAll('.spine-tick')];
     this.spineChapters = [...this.spineEl.querySelectorAll('.spine-chapter')];
   }
@@ -188,6 +268,7 @@ export class Presenter {
       this.aoeHud?.techTree?.close();
       this.aoeHud?.sandbox?.close();
       this.aoeHud?.codex?.close();
+      this.aoeHud?.landscapeChooser?.close();
       this.aoeHud?.landscape3d?.close();
       if (this.#typing(e.target)) e.target.blur();
       return;
@@ -211,10 +292,10 @@ export class Presenter {
     else if (key === 'n') run(() => this.toggleNotes());
     else if (key === 'b') run(() => this.aoeHud?.codex?.toggle(this.slides[this.index]?.chapter?.id));
     else if (key === 'a') run(() => this.aoeHud?.sandbox?.toggle());
-    else if (key === '3' || key === 'l') run(() => this.aoeHud?.landscape3d?.toggle());
+    else if (key === '3' || key === 'l') run(() => this.aoeHud?.landscapeChooser?.toggle());
     else if (key === 'm') run(() => {
       const muted = sound.toggleMute();
-      const icon = document.getElementById('aoe-sound-icon');
+      const icon = document.getElementById('spine-sound-icon');
       if (icon) icon.textContent = muted ? '🔇' : '🔊';
     });
     else if (key === 'g' || key === 'o') run(() => this.#toggle(this.overview));
@@ -256,10 +337,11 @@ export class Presenter {
 
   /**
    * @param {number} index
-   * @param {{atEnd?:boolean, event?:Event}} [opts]
+   * @param {{atEnd?:boolean, silent?:boolean}} [opts]
    */
-  goTo(index, { atEnd = false } = {}) {
+  goTo(index, { atEnd = false, silent = false } = {}) {
     if (index < 0 || index >= this.slides.length) return;
+    this.#dismissChapterTransition();
     try {
       this.cleanup?.();
     } catch (err) {
@@ -267,6 +349,11 @@ export class Presenter {
     }
     this.cleanup = null;
     this.hooks = null;
+
+    if (!silent) {
+      this.committedIndex = index;
+      this.previewIndex = null;
+    }
 
     const slide = this.slides[index];
     const previousChapter = this.current?.dataset.chapter;
@@ -278,7 +365,7 @@ export class Presenter {
     leaving?.remove();
 
     const el = document.createElement('section');
-    el.className = this.calm ? 'slide' : 'slide slide-fade-in';
+    el.className = this.calm || silent ? 'slide' : 'slide slide-fade-in';
     el.id = `slide-${slide.id}`;
     el.setAttribute('aria-label', slide.title);
     el.dataset.chapter = slide.chapter.id;
@@ -292,42 +379,71 @@ export class Presenter {
     if (typeof result === 'function') this.cleanup = result;
     if (atEnd && this.beatsOf(slide) > 1) this.setBeat(this.beatsOf(slide) - 1);
 
-    if (!leaving || previousChapter !== slide.chapter.id) {
-      const actIndex = ACTS.findIndex((act) => act.chapters.includes(slide.chapter.id));
-      const act = ACTS[actIndex];
-      this.#showActToast(actIndex + 1, act?.label ?? slide.chapter.label);
+    if (!silent && previousChapter && previousChapter !== slide.chapter.id) {
+      const chapterIndex = this.chapters.findIndex((c) => c.id === slide.chapter.id);
+      const chapterNum = chapterIndex >= 0 ? chapterIndex + 1 : 1;
+      this.#showChapterTransition(chapterNum, slide.chapter.label, slide.title);
     }
-    if (!this.calm) {
+    if (!this.calm && !silent) {
       setTimeout(() => el.classList.remove('slide-fade-in'), 260);
     }
 
     $('notes-title').textContent = slide.title;
     $('notes-content').innerHTML = slide.notes || '';
     this.#refresh();
-    try {
-      history.replaceState(null, '', `#${slide.id}`);
-    } catch {
-      /* file:// bisa melarang riwayat */
+    if (!silent) {
+      try {
+        history.replaceState(null, '', `#${slide.id}`);
+      } catch {
+        /* file:// bisa melarang riwayat */
+      }
     }
   }
 
-  #showActToast(number, label) {
-    if (!this.actToast) {
-      this.actToast = document.createElement('div');
-      this.actToast.className = 'act-toast';
-      this.actToast.setAttribute('aria-live', 'polite');
-      this.actToast.setAttribute('aria-atomic', 'true');
-      this.actToast.innerHTML = '<strong></strong><span></span>';
+  #showChapterTransition(chapterNum, chapterLabel, slideTitle) {
+    if (this.calm) return;
+
+    if (!this.curtainEl) {
+      this.curtainEl = document.createElement('div');
+      this.curtainEl.className = 'chapter-curtain';
+      this.curtainEl.setAttribute('aria-live', 'polite');
+      this.frame.appendChild(this.curtainEl);
+      this.curtainEl.addEventListener('click', () => this.#dismissChapterTransition());
     }
 
-    this.actToast.querySelector('strong').textContent = `ACT ${number}:`;
-    this.actToast.querySelector('span').textContent = label;
-    this.actToast.classList.remove('visible');
-    this.frame.appendChild(this.actToast);
-    void this.actToast.offsetWidth;
-    this.actToast.classList.add('visible');
-    clearTimeout(this.actToastTimer);
-    this.actToastTimer = setTimeout(() => this.actToast?.classList.remove('visible'), 1450);
+    const numStr = String(chapterNum).padStart(2, '0');
+    this.curtainEl.innerHTML = `
+      <div class="curtain-card">
+        <div class="curtain-number">${numStr}</div>
+        <div class="curtain-line"></div>
+        <div class="curtain-label">${chapterLabel.toUpperCase()}</div>
+        ${slideTitle ? `<div class="curtain-title">${slideTitle}</div>` : ''}
+      </div>
+    `;
+
+    this.curtainEl.classList.remove('fade-out');
+    this.curtainEl.classList.remove('active');
+    void this.curtainEl.offsetWidth;
+    this.curtainEl.classList.add('active');
+
+    clearTimeout(this.curtainTimer);
+    clearTimeout(this.curtainFadeTimer);
+
+    this.curtainFadeTimer = setTimeout(() => {
+      this.curtainEl?.classList.add('fade-out');
+      this.curtainTimer = setTimeout(() => {
+        this.#dismissChapterTransition();
+      }, 400);
+    }, 1000);
+  }
+
+  #dismissChapterTransition() {
+    clearTimeout(this.curtainTimer);
+    clearTimeout(this.curtainFadeTimer);
+    if (this.curtainEl) {
+      this.curtainEl.classList.remove('active');
+      this.curtainEl.classList.remove('fade-out');
+    }
   }
 
   #markOverview() {

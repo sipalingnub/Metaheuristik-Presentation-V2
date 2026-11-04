@@ -29,7 +29,7 @@ import { CH, FA_COLOR } from './chapters.js';
 
 const FOOD = { x: 1480, y: 700 };
 const N_FLY = 22;
-const BOX = { x: 120, y: 340, w: 1700, h: 600 };
+const BOX = { x: 180, y: 340, w: 1640, h: 600 };
 
 function quality(p) {
   const d = Math.hypot(p.x - FOOD.x, p.y - FOOD.y);
@@ -326,7 +326,7 @@ const faKarakter = {
 
 /* ---------- Cara kerja ---------- */
 
-const PANEL = { x: 640, y: 330, w: 1240, h: 660 };
+const PANEL = { x: 660, y: 330, w: 1210, h: 660 };
 const SPHERE = landscapeById('sphere');
 const DEMO_GAMMA = 2;
 const DEMO_SPAN = SPHERE.max - SPHERE.min;

@@ -31,7 +31,7 @@ import { CH, BA_COLOR } from './chapters.js';
 /* ---------- Inspirasi ---------- */
 
 const PREY = { x: 1500, y: 690 };
-const BOX = { x: 120, y: 340, w: 1700, h: 600 };
+const BOX = { x: 180, y: 340, w: 1640, h: 600 };
 
 function drawPrey(ctx, t, glow = 0.5) {
   const x = PREY.x + Math.sin(t * 1.3) * 12;
@@ -293,7 +293,7 @@ const baKarakter = {
 
 /* ---------- Cara kerja ---------- */
 
-const PANEL = { x: 640, y: 330, w: 1240, h: 660 };
+const PANEL = { x: 660, y: 330, w: 1210, h: 660 };
 const SPHERE = landscapeById('sphere');
 const A_DEMO = 0.9;
 const R_DEMO = 0.3;
